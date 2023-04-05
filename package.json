@@ -1,0 +1,41 @@
+{
+  "name": "key721",
+  "version": "0.1.0",
+  "description": "",
+  "scripts": {
+    "test": "pnpm hardhat test --network sapphire_local"
+  },
+  "keywords": [
+    "oasisprotocol",
+    "sapphire",
+    "secp256k1",
+    "nft"
+  ],
+  "author": "HarryR",
+  "license": "AGPL-3",
+  "dependencies": {
+    "@oasisprotocol/sapphire-hardhat": "^1.0.3",
+    "@openzeppelin/contracts": "^4.8.2",
+    "bitcoinjs-lib": "^6.1.0",
+    "deoxysii": "^0.0.2",
+    "elliptic": "^6.5.4",
+    "ethers": "^5.7.2",
+    "js-sha512": "^0.8.0",
+    "node-fetch": "2",
+    "sha3": "^2.1.4",
+    "sqlite": "^4.1.2",
+    "sqlite3": "^5.1.6",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@ethersproject/abi": "^5.7.0",
+    "@ethersproject/providers": "^5.7.2",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
+    "@nomiclabs/hardhat-ethers": "^2.2.2",
+    "@types/elliptic": "^6.4.14",
+    "@types/node-fetch": "^2.6.3",
+    "chai": "^4.3.7",
+    "hardhat": "^2.13.0"
+  }
+}

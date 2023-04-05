@@ -1,0 +1,11 @@
+.cache
+.config
+.local
+.npm
+.pkg-cache
+artifacts
+build
+cache
+node_modules
+yarn.lock
+package-lock.json
