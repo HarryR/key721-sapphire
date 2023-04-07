@@ -32,6 +32,9 @@ cache/deployed.address: $(wildcard contracts/*.sol)
 monitor: cache/deployed.address
 	$(HARDHAT) key721-monitor --stats `cat cache/deployed.address` `cat cache/deployed.height` cache/monitor.sqlite3
 
+fetch-ethplorer: cache/deployed.address
+	$(HARDHAT) key721-fetch-ethplorer cache/monitor.sqlite3
+
 test: test-transfer test-burn
 
 .PHONY:

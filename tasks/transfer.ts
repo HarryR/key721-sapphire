@@ -9,9 +9,7 @@ task('key721-transfer')
     .addFlag('safe', 'Use safeTransfer')
     .addOptionalParam('data', 'Extra data to be passed')
     .setDescription('Run NFT_p256k1 transfer utility')
-    .setAction(async (taskArgs, hre) => {
-        return await main(taskArgs, hre);
-    });
+    .setAction(main);
 
 interface MainArgs {
     safe: boolean;

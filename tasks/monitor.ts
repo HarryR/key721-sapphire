@@ -80,9 +80,7 @@ task('key721-monitor')
     .addPositionalParam("dbfile", 'Sqlite database file path')
     .addFlag('stats', 'Display status information')
     .setDescription('Run monitor for NFT (Key721) contract')
-    .setAction(async (taskArgs, hre) => {
-        return await main(taskArgs, hre);
-    });
+    .setAction(main);
 interface MainArgs {
     chain: string;
     stats: boolean;
@@ -110,20 +108,29 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
     {
         if( x.is_mint )
         {
-            if( false === (await db.key721_exists(x.tokenId)) )
+            if( false === (await db.key721.exists(x.tokenId)) )
             {
-                const token = new DbKey721(x.tokenId, args.chain, contract.address, x.blockNumber, x.transactionHash, x.to, x.blockNumber, 0);
-                await token.create(db);
+                const token = await db.key721.create(new DbKey721(
+                    args.chain,         // chain
+                    contract.address,   // contract
+                    x.tokenId,          // key721_id
+                    x.blockNumber,      // created_height
+                    x.transactionHash,  // tx
+                    x.to,               // owner
+                    x.blockNumber,      // txfer_height
+                    0));                // txfer_count
 
                 if( args.stats ) {
-                    console.log(`... mint ${token.key721_id} by ${token.owner}`);
                     stats.mints += 1;
+                    console.log(`... mint ${token.key721_id} by ${token.owner}`);
                 }
             }
         }
         else if ( x.is_burn )
         {
-            await db.key721_delete(x.tokenId);
+            await db.key721.delete(x.tokenId);
+            await db.balance.delete_all(x.tokenId);
+            await db.keychecks.delete(x.tokenId);
         
             if( args.stats ) {
                 stats.burns += 1;
@@ -131,7 +138,7 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
             }
         }
         else {
-            await db.key721_update_owner(x.tokenId, x.to, x.blockNumber);            
+            await db.key721.update_owner(x.tokenId, x.to, x.blockNumber);
 
             if( args.stats ) {
                 stats.txfer += 1;

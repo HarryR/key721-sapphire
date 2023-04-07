@@ -7,9 +7,7 @@ task('key721-mint')
     .addPositionalParam("contract", 'Contract address 0x...')
     .addOptionalPositionalParam('to', 'Mint to address 0x...')
     .setDescription('Mint a NFT_p256k1 token')
-    .setAction(async (taskArgs, hre) => {
-        return await main(taskArgs, hre);
-    });
+    .setAction(main);
 
 interface MainArgs {
     debug: boolean;

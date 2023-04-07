@@ -1,6 +1,6 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { p256k1_tokenId_to_addresses } from "./pubkeys";
+import { p256k1_key721_id_to_addresses } from "./pubkeys";
 import nacl from 'tweetnacl';
 import { sha512_256 } from 'js-sha512';
 import { arrayify, keccak256 } from "ethers/lib/utils";
@@ -12,9 +12,7 @@ task('key721-burn')
     .addPositionalParam("contract", 'Contract address 0x...')
     .addPositionalParam('tokenId', 'Token ID')
     .setDescription('Burn a NFT_p256k1 token')
-    .setAction(async (taskArgs, hre) => {
-        return await main(taskArgs, hre);
-    });
+    .setAction(main);
 
 function x25519_derive_deoxysii(secretKey:Uint8Array, peerPublicKey:Uint8Array) {
     const shared = nacl.scalarMult(secretKey, peerPublicKey);
@@ -67,7 +65,7 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
             console.log(`   tokenId: ${tokenId}`);
             console.log(`    secret: ${secret}`);
             console.log(`  eth addr: ${w.address}`);
-            for( const x of p256k1_tokenId_to_addresses(tokenId) ) {
+            for( const x of p256k1_key721_id_to_addresses(tokenId) ) {
                 console.log(x);
             }
         }

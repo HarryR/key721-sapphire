@@ -8,6 +8,7 @@ typechain-types
 .cache
 .local
 pnpm-lock.yaml
+.node_repl_history
 
 # Hardhat files
 cache
