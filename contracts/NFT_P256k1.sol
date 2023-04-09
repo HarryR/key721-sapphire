@@ -9,11 +9,13 @@ contract NFT_P256k1 is ERC721_Sapphire
 
     uint256 private constant Secp256k1PrehashedSha256 = 5;
 
+    uint256 private constant Secp256k1_Curve_Order = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
+
     function _generate_keypair()
         internal view override
         returns (bytes32 p256k1_public, bytes32 p256k1_secret)
     {
-        bytes32 seed = _random_bytes32();
+        bytes32 seed = bytes32(_random_uint256(Secp256k1_Curve_Order));
 
         (bool success, bytes memory keypair) = GENERAGE_SIGNING_KEYPAIR.staticcall(
             abi.encode(Secp256k1PrehashedSha256, abi.encodePacked(seed))
@@ -27,8 +29,6 @@ contract NFT_P256k1 is ERC721_Sapphire
 
         // Note: compressed publicKey_bytes is always prefixed with one byte (``0x02`` or ``0x03``)        
         require( 33 == publicKey_bytes.length );
-
-        //p256k1_public = bytes32(publicKey_bytes);
 
         /// @solidity memory-safe-assembly
         assembly {

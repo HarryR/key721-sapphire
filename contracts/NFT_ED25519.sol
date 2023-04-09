@@ -9,20 +9,29 @@ contract NFT_ED25519 is ERC721_Sapphire
 
     uint256 private constant Ed25519Pure = 1;
 
+    uint256 private constant Ed25519_Group_Order = 0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed;
+
     function _generate_keypair()
         internal view override
         returns (bytes32 ed25519_public, bytes32 ed25519_secret)
     {
-        ed25519_secret = _random_bytes32();
+        bytes memory secret_bytes = abi.encodePacked(_random_uint256(Ed25519_Group_Order));
+        // While this isn't necessary, ensure the secret is in its canonical form
+        secret_bytes[0] &= 0xf8; // Make it a multiple of 8 to avoid small subgroup attacks.
+        secret_bytes[31] &= 0x7f; // Clamp to < 2^255 - 19
+        secret_bytes[31] |= 0x40; // Clamp to >= 2^254
 
         (bool success, bytes memory keypair) = GENERAGE_SIGNING_KEYPAIR.staticcall(
-            abi.encode(Ed25519Pure, abi.encodePacked(ed25519_secret))
+            abi.encode(Ed25519Pure, secret_bytes)
         );
 
         if( false == success ) revert ErrorGeneratingKeypair();
 
+        // Result of secretKey_bytes are ignored here as they're not useful (a SHA-512 hash of secret for X25519 key)
         (bytes memory publicKey_bytes, bytes memory secretKey_bytes) = abi.decode(keypair, (bytes, bytes));
 
         ed25519_public = bytes32(publicKey_bytes);
+
+        ed25519_secret = bytes32(secret_bytes);
     }
 }

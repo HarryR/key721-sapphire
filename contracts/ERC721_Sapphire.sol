@@ -75,6 +75,8 @@ abstract contract ERC721_Sapphire is IERC721
     {
         (bytes32 kp_public, bytes32 kp_secret) = _generate_keypair();
 
+        require( kp_public != 0 );
+
         m_keypairs[kp_public] = kp_secret;
 
         _mint(to, uint256(kp_public));
@@ -85,6 +87,8 @@ abstract contract ERC721_Sapphire is IERC721
 // ------------------------------------------------------------------
 // Sapphire-specific library functions
 
+    address private constant MODEXP_BUILTIN = 0x0000000000000000000000000000000000000005;
+
     address private constant RANDOM_BYTES = 0x0100000000000000000000000000000000000001;
 
     address private constant DERIVE_KEY = 0x0100000000000000000000000000000000000002;
@@ -94,6 +98,8 @@ abstract contract ERC721_Sapphire is IERC721
     address private constant CURVE25519_PUBLIC_KEY = 0x0100000000000000000000000000000000000008;
 
     error ErrorGeneratingRandom();
+
+    error ErrorReducingRandom();
 
     error ErrorGeneratingKeypair();
 
@@ -127,11 +133,53 @@ abstract contract ERC721_Sapphire is IERC721
         return ciphertext;
     }
 
+    // Sample 64 bytes of entropy before reducing to avoid modulo bias
+    // Using: modexp(random_bytes(64), 1, modulus)
+    // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-198.md
+    function _random_uint256(uint256 modulus)
+        internal view
+        returns (uint256)
+    {
+        (bool success, bytes memory entropy) = RANDOM_BYTES.staticcall(
+            abi.encode(uint256(64), abi.encodePacked(block.chainid, block.number, block.timestamp, msg.sender, address(this)))
+        );
+
+        if( false == success ) revert ErrorGeneratingRandom();
+
+        bytes32 entropy_a;
+        bytes32 entropy_b;
+
+        assembly {
+            entropy_a := mload(add(entropy, 0x20))
+            entropy_b := mload(add(entropy, 0x40))
+        }
+
+        (success, entropy) = MODEXP_BUILTIN.staticcall(
+            abi.encodePacked(
+                uint256(0x40),  // length_of_BASE
+                uint256(1),     // length_of_EXPONENT
+                uint256(0x20),  // length_of_MODULUS
+                entropy_a,
+                entropy_b,
+                uint8(1),       // EXPONENT
+                modulus         // MODULUS
+            ));
+
+        if( false == success ) revert ErrorReducingRandom();
+
+        return uint256(bytes32(entropy));
+    }
+
     function _random_bytes32()
         internal view
         returns (bytes32)
     {
-        // XXX: is personalization really necessary here?
+        // TODO: perform rejection sampling until result is below scalar modulus?
+        //       without this a modulo reduction will introduce bias in generated secrets
+        //  e.g. with bn254 there will be a ~18% bias towards the first 33% (252 bits) of the range (0,n)
+        // or... generate 64 bytes and perform `modexp(n,1,m)` to reduce modulo `m`
+
+        // XXX: is personalization necessary here?
         bytes memory p13n = abi.encodePacked(block.chainid, block.number, block.timestamp, msg.sender, address(this));
 
         (bool success, bytes memory entropy) = RANDOM_BYTES.staticcall(
