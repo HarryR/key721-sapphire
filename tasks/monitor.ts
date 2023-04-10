@@ -2,6 +2,7 @@ import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { NFT_P256k1 } from "../typechain-types/contracts/NFT_P256k1";
 import { Db, DbProp, DbKey721 } from "./database";
+import { SupportedCurves } from "./pubkeys";
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
@@ -31,7 +32,7 @@ async function* sync_transfers(sync_status:{height:number,prop:DbProp}, c:NFT_P2
                 is_burn: is_burn,
                 blockNumber: x.blockNumber,
                 transactionHash: x.transactionHash,
-                tokenId: token_id_hex,
+                key72_id: token_id_hex,
                 to: x.args?.to
             }
         }
@@ -74,14 +75,16 @@ async function get_sync_blockheight(db:Db, deployed_height:string)
 }
 
 task('key721-monitor')
-    .addPositionalParam("chain", 'Name of chain')
-    .addPositionalParam("contract", 'Contract address 0x...')
-    .addPositionalParam("deployedHeight", 'Contract was deployed at this block number')
-    .addPositionalParam("dbfile", 'Sqlite database file path')
+    .addParam("chain", 'Name of chain')
+    .addParam("contract", 'Contract address 0x...')
+    .addParam("deployedHeight", 'Contract was deployed at this block number')
+    .addParam("dbfile", 'Sqlite database file path')
+    .addParam('alg', 'Key pair algorithm or curve')
     .addFlag('stats', 'Display status information')
     .setDescription('Run monitor for NFT (Key721) contract')
     .setAction(main);
 interface MainArgs {
+    alg: SupportedCurves;
     chain: string;
     stats: boolean;
     contract: string;
@@ -89,9 +92,14 @@ interface MainArgs {
     dbfile: string;
 }
 
-async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
+async function main(args:MainArgs, hre:HardhatRuntimeEnvironment)
 {
     const db = await Db.open(args.dbfile);
+
+    if( args.alg != 'secp256k1' && args.alg != 'ed25519' && args.alg != 'bn254' ) {
+        console.error(`Error: unknown alg / curve: ${args.alg}`);
+        return 1;
+    }
 
     const NFT_P256k1_factory = await hre.ethers.getContractFactory("NFT_P256k1");
     const contract = NFT_P256k1_factory.attach(args.contract);
@@ -102,23 +110,24 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
     let stats = {mints: 0, burns: 0, txfer: 0};
     if( args.stats ) {        
         console.log(`  start: ${sync_status.height}`);
-    }    
+    }
 
     for await (const x of sync_transfers(sync_status, contract))
     {
         if( x.is_mint )
         {
-            if( false === (await db.key721.exists(x.tokenId)) )
+            if( false === (await db.key721.exists(x.key72_id)) )
             {
                 const token = await db.key721.create(new DbKey721(
-                    args.chain,         // chain
-                    contract.address,   // contract
-                    x.tokenId,          // key721_id
-                    x.blockNumber,      // created_height
-                    x.transactionHash,  // tx
-                    x.to,               // owner
-                    x.blockNumber,      // txfer_height
-                    0));                // txfer_count
+                    args.chain,
+                    contract.address,
+                    x.key72_id,
+                    args.alg,
+                    x.blockNumber,
+                    x.transactionHash,
+                    x.to,
+                    x.blockNumber,
+                    0));
 
                 if( args.stats ) {
                     stats.mints += 1;
@@ -128,24 +137,24 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
         }
         else if ( x.is_burn )
         {
-            await db.key721.delete(x.tokenId);
-            await db.balance.delete_all(x.tokenId);
-            await db.keychecks.delete(x.tokenId);
-        
+            await db.key721.delete(x.key72_id);
+            await db.balance.delete_all(x.key72_id);
+            await db.keychecks.delete(x.key72_id);
+
             if( args.stats ) {
                 stats.burns += 1;
-                console.log(`... burn ${x.tokenId}`);
+                console.log(`... burn ${x.key72_id}`);
             }
         }
         else {
-            await db.key721.update_owner(x.tokenId, x.to, x.blockNumber);
+            await db.key721.update_owner(x.key72_id, x.to, x.blockNumber);
 
             if( args.stats ) {
                 stats.txfer += 1;
-                console.log(`... txfer ${x.tokenId} to ${x.to}`);
+                console.log(`... txfer ${x.key72_id} to ${x.to}`);
             }
         }
-    }    
+    }
 
     if( args.stats )
     {

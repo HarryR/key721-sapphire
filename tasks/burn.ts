@@ -1,14 +1,16 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { p256k1_key721_id_to_addresses } from "./pubkeys";
+import { SupportedCurves, key721_id_to_addresses } from "./pubkeys";
 import nacl from 'tweetnacl';
 import { sha512_256 } from 'js-sha512';
 import { arrayify, keccak256 } from "ethers/lib/utils";
 import * as deoxysii from "deoxysii";
 import { Wallet } from "ethers";
+import { key721_factory as key721_factory } from "./deploy";
 
 task('key721-burn')
     .addFlag('debug', 'Show debug info')
+    .addParam('alg', 'Curve or Algorithm')
     .addPositionalParam("contract", 'Contract address 0x...')
     .addPositionalParam('tokenId', 'Token ID')
     .setDescription('Burn a NFT_p256k1 token')
@@ -32,6 +34,7 @@ function key721_decrypt_reveal(kp:nacl.BoxKeyPair, contract_x25519_public_hex:st
 }
     
 interface MainArgs {
+    alg: SupportedCurves;
     debug: boolean;
     contract: string;
     tokenId: string;
@@ -39,9 +42,8 @@ interface MainArgs {
 
 async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
 {
-    const ethers = hre.ethers;
-    const NFT_P256k1_factory = await ethers.getContractFactory("NFT_P256k1");
-    const contract = NFT_P256k1_factory.attach(args.contract);
+    const factory = await key721_factory(args.alg, hre);
+    const contract = factory.attach(args.contract);
 
     const kp = nacl.box.keyPair();
     let tx = await contract.burn(args.tokenId, kp.publicKey);
@@ -58,19 +60,20 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
         const contract_x25519_public = receipt.events[1].args?.[1];
         const ciphertext_hex = receipt.events[1].args?.[2];
         const plaintext_bytes = key721_decrypt_reveal(kp, contract_x25519_public, ciphertext_hex);
-        const secret = '0x' + Buffer.from(plaintext_bytes).toString('hex');
+        const secret_buffer = Buffer.from(plaintext_bytes);
+        const secret_hex = '0x' + secret_buffer.toString('hex');
+        const secret_b64 = secret_buffer.toString('base64');
 
         if( args.debug ) {
-            const w = new Wallet(plaintext_bytes);
             console.log(`   tokenId: ${tokenId}`);
-            console.log(`    secret: ${secret}`);
-            console.log(`  eth addr: ${w.address}`);
-            for( const x of p256k1_key721_id_to_addresses(tokenId) ) {
+            console.log(`hex secret: ${secret_hex}`);
+            console.log(`b64 secret: ${secret_b64}`);
+            for( const x of await key721_id_to_addresses(args.alg, tokenId) ) {
                 console.log(x);
             }
         }
         else {
-            console.log(secret);
+            console.log(secret_hex);
         }
     } else {
         console.error(receipt);

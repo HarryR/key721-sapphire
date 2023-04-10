@@ -1,17 +1,23 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { SupportedCurves } from "./pubkeys";
+import { key721_factory } from "./deploy";
 
 task('key721-transfer')
     .addPositionalParam("contract", 'Contract address')
     .addPositionalParam("token", 'Which Token')
     .addPositionalParam("owner", 'Current Owner')
     .addPositionalParam("address", 'Destination Address')
+    .addParam('alg', 'Algorithm or curve')
     .addFlag('safe', 'Use safeTransfer')
+    .addFlag('debug', 'Show debugginf info')
     .addOptionalParam('data', 'Extra data to be passed')
     .setDescription('Run NFT_p256k1 transfer utility')
     .setAction(main);
 
 interface MainArgs {
+    alg: SupportedCurves;
+    debug: boolean;
     safe: boolean;
     contract: string;
     token: string;
@@ -22,15 +28,16 @@ interface MainArgs {
 
 async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
 {
-    const ethers = hre.ethers;
-    const NFT_P256k1_factory = await ethers.getContractFactory("NFT_P256k1");
-    const contract = NFT_P256k1_factory.attach(args.contract);
+    const factory = await key721_factory(args.alg, hre);
+    const contract = factory.attach(args.contract);
 
-    console.log(` contract: ${args.contract}`)
-    console.log(`    owner: ${args.owner}`)
-    console.log(`       to: ${args.address}`)
-    console.log(`    token: ${args.token}`)
-
+    if( args.debug ) {
+        console.error(` contract: ${args.contract}`)
+        console.error(`    owner: ${args.owner}`)
+        console.error(`       to: ${args.address}`)
+        console.error(`    token: ${args.token}`)
+    }
+    
     let tx;
     if( args.safe ) {
         if( args.data ) {
@@ -47,7 +54,12 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
         tx = await contract.transferFrom(args.owner, args.address, args.token);
     }
 
-    const x = await tx.wait();
-    console.log(`       tx: ${x.transactionHash}`)
-    console.log(`      gas: ${x.gasUsed}`)
+    const receipt = await tx.wait();
+
+    if( args.debug ) {
+        console.error(`       tx: ${receipt.transactionHash}`)
+        console.error(`      gas: ${receipt.gasUsed}`)
+    }
+
+    console.log(receipt.transactionHash);
 }

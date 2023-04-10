@@ -136,7 +136,7 @@ abstract contract ERC721_Sapphire is IERC721
     // Sample 64 bytes of entropy before reducing to avoid modulo bias
     // Using: modexp(random_bytes(64), 1, modulus)
     // https://github.com/ethereum/EIPs/blob/master/EIPS/eip-198.md
-    function _random_uint256(uint256 modulus)
+    function _random_uint256_modulo(uint256 modulus)
         internal view
         returns (uint256)
     {

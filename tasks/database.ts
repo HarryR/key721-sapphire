@@ -1,7 +1,7 @@
 import { task } from "hardhat/config";
 import * as sqlite3 from 'sqlite3'
 import * as sqlite from 'sqlite'
-import { p256k1_key721_id_to_addresses } from "./pubkeys";
+import { p256k1_key721_id_to_addresses, SupportedCurves } from "./pubkeys";
 
 export type Sqlite3DB = sqlite.Database<sqlite3.Database, sqlite3.Statement>;
 
@@ -319,6 +319,7 @@ export class DbKey721
         public contract:string,
         public key721_id:string,
 
+        public alg:SupportedCurves,
         public created_height:number,
         public tx:string,
         public owner:string,
@@ -347,6 +348,8 @@ class DbManagerKey721
 
                 chain TEXT NOT NULL,
                 contract TEXT NOT NULL,
+
+                alg TEXT NOT NULL,
                 created_height NUMBER NOT NULL,
                 tx TEXT NOT NULL,
                 owner TEXT NOT NULL,
@@ -359,13 +362,13 @@ class DbManagerKey721
     public async create(x:DbKey721) {
         await this._handle.run(
             `INSERT INTO key721 (
-                key721_id,   chain,   contract,       created_height,
+                key721_id,   chain,   contract,       alg,   created_height,
                 tx,          owner,   txfer_height,   txfer_count
             ) VALUES (
-                ?,           ?,       ?,              ?,
+                ?,           ?,       ?,              ?,     ?,
                 ?,           ?,       ?,              ?
             );`,
-              x.key721_id, x.chain, x.contract,     x.created_height,
+              x.key721_id, x.chain, x.contract,     x.alg, x.created_height,
               x.tx,        x.owner, x.txfer_height, x.txfer_count);
         return x;
     }

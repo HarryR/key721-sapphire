@@ -1,13 +1,28 @@
 import { task } from "hardhat/config";
 import BN from "bn.js";
+import nacl from "tweetnacl";
 import { ec, curve }  from "elliptic";
-import { BigNumber, Wallet } from "ethers";
+import { BigNumber, BigNumberish, Wallet } from "ethers";
 import { base64, getAddress, hexDataSlice, isHexString, keccak256, sha256, toUtf8Bytes } from "ethers/lib/utils";
 import { p2pkh, p2wpkh } from "bitcoinjs-lib/src/payments";
+import { address as oasisRT_address } from "@oasisprotocol/client-rt"
 
 // ------------------------------------------------------------------
 
-const bn254 = new curve.short({
+export type SupportedCurves = 'secp256k1' | 'bn254' | 'ed25519' | 'x25519';
+
+export async function key721_id_to_addresses(alg:SupportedCurves, key721_id:string|BigNumber) {
+    switch(alg) {
+        case 'bn254': return bn254_key721_id_to_addresses(key721_id);
+        case 'ed25519': return await ed25519_key721_id_to_addresses(key721_id);
+        case 'secp256k1': return p256k1_key721_id_to_addresses(key721_id);
+        case 'x25519': return [{x25519: key721_id}];
+    }
+}
+
+// ------------------------------------------------------------------
+
+export const bn254 = new curve.short({
     p: new BN('30644e72 e131a029 b85045b6 8181585d 97816a91 6871ca8d 3c208c16 d87cfd47', 'hex'),
     a: '0',
     b: '3',
@@ -19,87 +34,152 @@ const bn254 = new curve.short({
 
 bn254.g = bn254.pointFromX(1);
 
-type bn254_Point = curve.short.ShortPoint;
+export type bn254_Point = curve.short.ShortPoint;
 
-export function key721_id_to_bn254_point(token_id: string) {
-    return bn254.decodePoint(token_id) as bn254_Point;
+export function key721_id_to_bn254_point(token_id:string|BigNumberish) {
+    const token_bn = BigNumber.from(token_id);
+    const x = new BN(token_bn.toHexString().slice(2), 16);
+    return bn254.pointFromX(x.maskn(255), x.testn(255)) as bn254_Point;
+}
+
+export function bn254_key721_id_to_addresses(token_id:string|BigNumberish) {
+    return [ {key721_id: bn254_point_to_key721_id(key721_id_to_bn254_point(token_id))} ]
+}
+
+export function bn254_point_to_key721_id(point:bn254_Point) {
+    const x = point.getX()
+    if( point.getY().testn(1) )  {
+        return '0x' + x.bincn(255).toString('hex').padStart(64, '0');
+    }
+    return '0x' + x.toString('hex').padStart(64, '0');
 }
 
 // ------------------------------------------------------------------
 
 /*
-// XXX: Oasis works with ed25519 keypairs, not secp256k1!
-import {Keccak} from 'sha3';
-import {address as oasis_address} from "@oasisprotocol/client"
-import {address as oasisRT_address} from "@oasisprotocol/client-rt"
-export async function point_to_oasis_address(point:any) {
+// Elliptic ed25519 is a bit wonky? idk
+export const ed25519 = new ec("ed25519");
+
+export type ed25519_Point = curve.edwards.EdwardsPoint;
+
+export function key721_id_to_ed25519_point(key721_id:BigNumberish) : ed25519_Point {
+    let token_bn = new BN(BigNumber.from(key721_id).toString(), 10);
+    console.error('Recovering Ed25519 point', token_bn, key721_id);
+    return ed25519.curve.pointFromX(token_bn, token_bn.testn(255))
+}
+
+export function ed25519_point_to_key721_id(point:ed25519_Point) {
+    //y = int.from_bytes(s, "little")
+    //sign = y >> 255
+    //y &= (1 << 255) - 1
+    const enc = point.encode('hex', true);
+    const token_bn = new BN(enc.slice(2), 16);
+    if( enc.slice(0, 3) == '03' ) {
+        token_bn.setn(255);
+    }
+    return '0x' + token_bn.toString('hex');
+}
+
+export async function ed25519_point_to_oasis_address(point:ed25519_Point) {
     const pk = Buffer.from(point.encode(undefined, true));
-    const address = await oasisRT_address.fromSigspec({secp256k1eth: new Uint8Array(pk)});
+    const address = await oasisRT_address.fromSigspec({ed25519: new Uint8Array(pk)});
     return oasisRT_address.toBech32(address);
 }
 */
 
-// ------------------------------------------------------------------
-
-const secp256k1 = new ec("secp256k1");
-
-type p256p1_Point = curve.short.ShortPoint;
-
-export function key721_id_to_p256k1_points(token_id: string | BigNumber) : [p256p1_Point, p256p1_Point]
-{
-    if( typeof token_id === 'string' ) {
-        if( ! token_id.startsWith("0x") ) {
-            token_id = BigNumber.from(token_id);
-        }
-    }
-
-    if( typeof token_id !== 'string' ) {
-        token_id = token_id.toHexString().slice(2);
-    }
-    else {
-        if( ! isHexString(token_id, 32) ) {
-            throw Error('Token ID must be 32 bytes hex encoded');
-        }
-        token_id = token_id.slice(2);
-    }    
-
-    return [secp256k1.curve.decodePoint("02" + token_id, 'hex'),
-            secp256k1.curve.decodePoint("03" + token_id, 'hex')];
-
-    // TODO: move over to a sane typescript friendly curve library instead of 'elliptic'
-    // https://github.com/paulmillr/noble-secp256k1
-    //import * as secp256k1 from "@noble/secp256k1";
-    //return secp256k1.ProjectivePoint.fromHex("0x02" + token_id);
+export function key721_id_to_ed25519_point(key721_id:BigNumberish) {
+    return new Uint8Array(Buffer.from(BigNumber.from(key721_id).toHexString().slice(2), 'hex'));
 }
 
-export function p256k1_point_to_eth_address(point:p256p1_Point) {
+export function ed25519_point_to_key721_id(point:Uint8Array) {
+    return BigNumber.from(point).toHexString();
+}
+
+export async function ed25519_point_to_oasis_address(point:Uint8Array) {
+    const address = await oasisRT_address.fromSigspec({ed25519: point});
+    return oasisRT_address.toBech32(address);
+}
+
+export async function ed25519_point_to_addresses(point:Uint8Array) {
+    return [{
+        oasis: await ed25519_point_to_oasis_address(point),
+        key721_id: ed25519_point_to_key721_id(point)
+    }];
+}
+
+export async function ed25519_key721_id_to_addresses(key721_id:BigNumberish) {
+    return ed25519_point_to_addresses(key721_id_to_ed25519_point(key721_id));
+}
+
+export async function ed25519_point_from_secret(secret: Uint8Array|string) {
+    if( typeof secret === 'string' ) {
+        if( secret.slice(0,2) != '0x' ) {
+            throw Error('Require 0x prefixed hex string');
+        }
+        secret = new Uint8Array(Buffer.from(secret.slice(2), 'hex'));
+    }
+    return nacl.sign.keyPair.fromSeed(secret).publicKey;
+}
+
+// ------------------------------------------------------------------
+
+export const secp256k1 = new ec("secp256k1");
+
+export type p256k1_Point = curve.short.ShortPoint;
+
+export function p256k1_point_to_key721_id(point:p256k1_Point) {
+    return '0x' + point.getX().toString('hex');
+}
+
+export function key721_id_to_p256k1_points(key721_id: string | BigNumber) : [p256k1_Point, p256k1_Point]
+{
+    if( typeof key721_id === 'string' ) {
+        if( ! key721_id.startsWith("0x") ) {
+            key721_id = BigNumber.from(key721_id);
+        }
+    }
+
+    if( typeof key721_id !== 'string' ) {
+        key721_id = key721_id.toHexString().slice(2);
+    }
+    else {
+        if( ! isHexString(key721_id, 32) ) {
+            throw Error('Token ID must be 32 bytes hex encoded');
+        }
+        key721_id = key721_id.slice(2);
+    }
+
+    return [secp256k1.curve.decodePoint("02" + key721_id, 'hex'),
+            secp256k1.curve.decodePoint("03" + key721_id, 'hex')];
+}
+
+export function p256k1_point_to_eth_address(point:p256k1_Point) {
     const x = point.encode(undefined, false).slice(1); // Includes 0x04 prefix
     return getAddress(hexDataSlice(keccak256(x), 12));
 }
 
-export function p256k1_point_to_btc_address(point:p256p1_Point) {
+export function p256k1_point_to_btc_address(point:p256k1_Point) {
     const pubkey = Buffer.from(point.encode(undefined, false));
     return p2pkh({ pubkey: pubkey }).address;
 }
 
-export function p256k1_point_to_segwit_address(point:p256p1_Point) {
+export function p256k1_point_to_segwit_address(point:p256k1_Point) {
     const pubkey = Buffer.from(point.encode(undefined, true));
     return p2wpkh({ pubkey: pubkey }).address;   
 }
 
-export function p256k1_point_to_addresses(point:p256p1_Point) {
+export function p256k1_point_to_addresses(point:p256k1_Point) {
     return {
+        'secp256k1_xy': point.encode('hex', false),
+        'secp256k1_compact': point.encode('hex', true),
         'eth': p256k1_point_to_eth_address(point),
         'btc': p256k1_point_to_btc_address(point),
-        'segwit': p256k1_point_to_segwit_address(point),
-        //'oasis': await point_to_oasis_address(point),
+        'segwit': p256k1_point_to_segwit_address(point)
     }
 }
 
-export function p256k1_key721_id_to_addresses(tokenId: string | BigNumber) {
-    const p = key721_id_to_p256k1_points(tokenId);
-    return p.map(p256k1_point_to_addresses);
-    //return point_to_addresses(p);
+export function p256k1_key721_id_to_addresses(key721_id: string | BigNumber) {
+    return key721_id_to_p256k1_points(key721_id).map(p256k1_point_to_addresses);
 }
 
 // ------------------------------------------------------------------
@@ -124,7 +204,7 @@ async function main(args: MainArgs)
     if( args.curve == 'secp256k1' )
     {
         if( args.tokenid ) {
-            p = key721_id_to_p256k1_points(args.tokenid);        
+            p = key721_id_to_p256k1_points(args.tokenid);
         }
         else if( args.brainseed ) {
             const n = sha256(toUtf8Bytes(args.brainseed));
@@ -136,7 +216,7 @@ async function main(args: MainArgs)
             console.error('Error: must specify either brainseed or tokenid');
             return 1;
         }
-        
+
         for( let i = 0; i < p.length; i++ ) {
             console.log('public-secp256k1', p[i].encode('hex', true));
             console.log('public-eth', p256k1_point_to_eth_address(p[i]));

@@ -3,17 +3,22 @@
   "version": "0.1.0",
   "description": "",
   "scripts": {
-    "test": "pnpm hardhat test --network sapphire_local"
+    "test": "pnpm hardhat test --network sapphire_local",
+    "repl": "pnpm ts-node"
   },
   "keywords": [
     "oasisprotocol",
     "sapphire",
     "secp256k1",
+    "ed25519",
+    "bn254",
+    "ERC-721",
     "nft"
   ],
   "author": "HarryR",
   "license": "AGPL-3",
   "dependencies": {
+    "@oasisprotocol/client-rt": "^0.2.1-alpha.2",
     "@oasisprotocol/sapphire-hardhat": "^1.0.3",
     "@openzeppelin/contracts": "^4.8.2",
     "bitcoinjs-lib": "^6.1.0",
@@ -22,7 +27,7 @@
     "elliptic": "^6.5.4",
     "ethers": "^5.7.2",
     "js-sha512": "^0.8.0",
-    "node-fetch": "2",
+    "node-fetch": ">=2.6.7",
     "sha3": "^2.1.4",
     "sqlite": "^4.1.2",
     "sqlite3": "^5.1.6",
@@ -38,6 +43,7 @@
     "@types/elliptic": "^6.4.14",
     "@types/node-fetch": "^2.6.3",
     "chai": "^4.3.7",
-    "hardhat": "^2.13.0"
+    "hardhat": "^2.13.0",
+    "ts-node": "^10.9.1"
   }
 }

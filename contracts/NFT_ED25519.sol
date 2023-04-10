@@ -15,7 +15,7 @@ contract NFT_ED25519 is ERC721_Sapphire
         internal view override
         returns (bytes32 ed25519_public, bytes32 ed25519_secret)
     {
-        bytes memory secret_bytes = abi.encodePacked(_random_uint256(Ed25519_Group_Order));
+        bytes memory secret_bytes = abi.encodePacked(_random_uint256_modulo(Ed25519_Group_Order));
         // While this isn't necessary, ensure the secret is in its canonical form
         secret_bytes[0] &= 0xf8; // Make it a multiple of 8 to avoid small subgroup attacks.
         secret_bytes[31] &= 0x7f; // Clamp to < 2^255 - 19

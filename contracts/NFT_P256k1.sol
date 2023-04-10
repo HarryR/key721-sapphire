@@ -15,7 +15,7 @@ contract NFT_P256k1 is ERC721_Sapphire
         internal view override
         returns (bytes32 p256k1_public, bytes32 p256k1_secret)
     {
-        bytes32 seed = bytes32(_random_uint256(Secp256k1_Curve_Order));
+        bytes32 seed = bytes32(_random_uint256_modulo(Secp256k1_Curve_Order));
 
         (bool success, bytes memory keypair) = GENERAGE_SIGNING_KEYPAIR.staticcall(
             abi.encode(Secp256k1PrehashedSha256, abi.encodePacked(seed))
