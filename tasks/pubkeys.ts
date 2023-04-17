@@ -185,44 +185,76 @@ export function p256k1_key721_id_to_addresses(key721_id: string | BigNumber) {
 // ------------------------------------------------------------------
 
 task('key721-pubkeys')
-    .addOptionalParam('curve', 'Which curve: secp256k1 | bn254 | ed25519', 'secp256k1')
+    .addPositionalParam('curve', 'Which curve: secp256k1 | bn254 | ed25519', 'secp256k1')
     .addOptionalParam('brainseed', 'Derive from brain seed')
+    .addOptionalParam('secrethex', 'Derive from secret (0x prefixed hexadecimal)')
+    .addOptionalParam('secretb64', 'Derive from secret (Base64 encoded)')
     .addOptionalParam('tokenid', 'Token ID provided by NFT contract')
     .setDescription('Calculate public keys')
     .setAction(main);
 
 interface MainArgs {
-    curve: string;
+    curve: SupportedCurves;
     brainseed: string | null;
     tokenid: string | null;
+    secrethex: string | null;
+    secretb64: string | null;
 }
 
 async function main(args: MainArgs)
 {
-    let p;
+    let secret;
+    if( args.secrethex || args.secretb64 ) {
+        if( args.secrethex ) {
+            secret = args.secrethex;
+        }
+        else if( args.secretb64 ) {
+            secret = '0x' + Buffer.from(args.secretb64, 'base64').toString('hex');
+        }
+    }
+    else if( args.brainseed ) {
+        // XXX: note this brainseed type is very insecure!
+        // TODO: add argon2, pbkdf2
+        secret = sha256(toUtf8Bytes(args.brainseed));
+    }
+    else if( ! args.tokenid ) {
+        console.error('Error! Must provide a secret or a token ID')
+        return 2;
+    }
 
     if( args.curve == 'secp256k1' )
     {
+        let points:p256k1_Point[] = [];
         if( args.tokenid ) {
-            p = key721_id_to_p256k1_points(args.tokenid);
+            points = key721_id_to_p256k1_points(args.tokenid);
         }
-        else if( args.brainseed ) {
-            const n = sha256(toUtf8Bytes(args.brainseed));
-            console.log('secret-hex', n);
-            console.log('secret-b64', base64.encode(n));
-            p = [secp256k1.curve.decodePoint(new Wallet(n).publicKey.slice(2), 'hex')];
-        }
-        else {
-            console.error('Error: must specify either brainseed or tokenid');
-            return 1;
+        else if( secret ) {
+            points = [secp256k1.curve.decodePoint(new Wallet(secret).publicKey.slice(2), 'hex')];
         }
 
-        for( let i = 0; i < p.length; i++ ) {
-            console.log('public-secp256k1', p[i].encode('hex', true));
-            console.log('public-eth', p256k1_point_to_eth_address(p[i]));
-            console.log('public-btc', p256k1_point_to_btc_address(p[i]));
-            console.log('public-segwit-bech32', p256k1_point_to_segwit_address(p[i]));
+        if( points.length ) {
+            for( const p of points ) {
+                console.log(p256k1_point_to_addresses(p));
+            }
         }
+
+        return 0;
+    }
+    else if( args.curve == "ed25519" ) {
+        let p:Uint8Array|undefined;
+
+        if( args.tokenid ) {
+            p = key721_id_to_ed25519_point(args.tokenid);
+        }
+        else if( secret) {
+            p = await ed25519_point_from_secret(secret);
+        }
+
+        if( p ) {
+            console.log(await ed25519_point_to_addresses(p));
+        }
+
+        return 0;
     }
     else if( args.curve == 'bn254' ) {
         const h = bn254.g.mul(new BN('100', 10));
@@ -231,11 +263,10 @@ async function main(args: MainArgs)
         console.log(i);
         const j = bn254.decodePoint(i, 'hex');
         console.log(j.getX().toString(), j.getY().toString());
-    }
-    else {
-        console.error(`Error: unknown curve ${args.curve}`);
-        return 1;
+
+        return 0;
     }
 
-    return 0;
+    console.error(`Error: unknown curve ${args.curve}`);
+    return 1;
 }

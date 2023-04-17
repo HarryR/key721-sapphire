@@ -96,6 +96,11 @@ class DbManagerKeychecks
 
 // ------------------------------------------------------------------
 
+interface DbFetcher {
+    api:string;
+    chain:string;
+    height:number;
+}
 class DbManagerFetchers
 {
     private _handle:Sqlite3DB;
@@ -115,6 +120,11 @@ class DbManagerFetchers
                 PRIMARY KEY(api,chain)
             );
         `);
+    }
+
+    public async all()
+    {
+        return await this._handle.all<DbFetcher[]>('SELECT * FROM fetchers');
     }
 
     public async sync(api:string, chain:string, height:number=0)
@@ -176,6 +186,10 @@ class DbManagerToken
                 PRIMARY KEY(chain,contract)
             );
         `);
+    }
+
+    public async all() {
+        return await this._handle.all<DbToken[]>('SELECT * FROM token');
     }
 
     public async get(chain:string, contract:string|null=null)
@@ -275,6 +289,10 @@ class DbManagerBalance
         `);
     }
 
+    public async all(token_id:string) {
+        return await this._handle.all<DbBalance[]>('SELECT * FROM balance WHERE key721_id = ?', token_id);
+    }
+
     public async create(x:DbBalance) {
         await this._handle.run(`
             INSERT INTO balance (
@@ -300,6 +318,16 @@ class DbManagerBalance
                 DELETE FROM balance WHERE key721_id = ?
             `, key721_id);
         }
+    }
+
+    public async replace(key721_id:string, api:string, balances:DbBalance[])
+    {
+        await this._handle.run('BEGIN TRANSACTION;');
+        await this.delete_all(key721_id, api);
+        for( const b of balances ) {
+            await this.create(b);
+        }
+        await this._handle.run('COMMIT TRANSACTION;');
     }
 
     public async exists(api:string, key721_id:string)

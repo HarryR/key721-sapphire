@@ -7,7 +7,6 @@ contract NFT_BN254 is ERC721_Sapphire
 {
     // Note: Sapphire doesn't support BN254 operations... so we have to do it the slow way!
     // Note: this isn't constant time, gas cost of mint() will leak information about secret
-    // XXX: currently I think this implementation is broken
     // See: https://hackmd.io/@jpw/bn254
     // See: https://eips.ethereum.org/EIPS/eip-196
     // See: https://github.com/orbs-network/elliptic-curve-solidity
@@ -91,11 +90,9 @@ contract NFT_BN254 is ERC721_Sapphire
             x0 = mulmod(x0, x0, n);
             t = mulmod(x0, 3, n);
             // comment in this section iff a == 0 (to save gas)
-            /*
             z0 = mulmod(z0, z0, n);
             z0 = mulmod(z0, a, n);
             t = addmod(t, z0, n);
-            */
             // comment up to here if a == 0
 
             w = mulmod(t, t, n);
@@ -227,17 +224,39 @@ contract NFT_BN254 is ERC721_Sapphire
         unchecked {
             scalar = scalar >> 1;
 
-            // TODO: make constant time, potentially use pre-computed points + wNAF ?
-            while(scalar > 0) {
+            for( uint i = 0; i < 255; i++ ) {
                 (base2X, base2Y, base2Z) = bn254_twice_proj(base2X, base2Y, base2Z);
 
-                // TODO: make constant time
-                if(scalar%2 == 1) {
-                    (x1, y1, z1) = bn254_add_proj(base2X, base2Y, base2Z, x1, y1, z1);
-                }
+                (uint256 t_x, uint256 t_y, uint256 t_z) = bn254_add_proj(base2X, base2Y, base2Z, x1, y1, z1);
+                uint256 c = scalar % 2;
+                uint256 d = 1 - c;
+                x1 = (d*x1) + (c*t_x);
+                y1 = (d*y1) + (c*t_y);
+                z1 = (d*z1) + (c*t_z);
 
                 scalar = scalar >> 1;
             }
+
+            /*
+            // This will leak information about the highest bit of the secret
+            while(scalar > 0) {
+                (base2X, base2Y, base2Z) = bn254_twice_proj(base2X, base2Y, base2Z);
+
+                // If condition not constant time
+                //if(scalar%2 == 1) {
+                //    (x1, y1, z1) = bn254_add_proj(base2X, base2Y, base2Z, x1, y1, z1);
+
+                // Constant time implementation
+                (uint256 t_x, uint256 t_y, uint256 t_z) = bn254_add_proj(base2X, base2Y, base2Z, x1, y1, z1);
+                uint256 c = scalar % 2;
+                uint256 d = 1 - c;
+                x1 = (d*x1) + (c*t_x);
+                y1 = (d*y1) + (c*t_y);
+                z1 = (d*z1) + (c*t_z);
+
+                scalar = scalar >> 1;
+            }
+            */
         }
 
         return bn254_affine(x1, y1, z1);
