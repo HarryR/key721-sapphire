@@ -176,7 +176,7 @@ function shouldBehaveLikeERC721(errorPrefix, owner, newOwner, approved, anotherA
           it('reverts', async function () {
             await expectRevertCustomError(
               transferFunction.call(this, other, other, tokenId, { from: owner }),
-              'ERC721_Error_WrongOwner()',
+              'Error_ERC721_WrongOwner()',
             );
           });
         });

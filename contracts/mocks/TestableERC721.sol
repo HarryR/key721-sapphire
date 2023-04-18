@@ -76,19 +76,12 @@ contract TestableERC721 is Abstract_ERC721, IERC721Metadata
     }
 
     /**
-     * @dev Reverts if the `tokenId` has not been minted yet.
-     */
-    function _requireMinted(uint256 tokenId) internal view virtual {
-        if( ! _exists(tokenId) ) {
-            revert Error_ERC721_Invalid_Token_ID();
-        }
-    }
-
-    /**
      * @dev See {IERC721Metadata-tokenURI}.
      */
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        _requireMinted(tokenId);
+        if( ! _exists(tokenId) ) {
+            revert Error_ERC721_Invalid_Token_ID();
+        }
 
         string memory baseURI = _baseURI();
         return bytes(baseURI).length > 0 ? string(abi.encodePacked(baseURI, tokenId.toString())) : "";
@@ -126,7 +119,7 @@ contract TestableERC721 is Abstract_ERC721, IERC721Metadata
      * Emits a {Transfer} event.
      */
     function safeMint(address to, uint256 tokenId) public virtual {
-        safeMint(to, tokenId, "");
+        _safeMint(to, tokenId, "");
     }
 
     /**
@@ -134,9 +127,6 @@ contract TestableERC721 is Abstract_ERC721, IERC721Metadata
      * forwarded in {IERC721Receiver-onERC721Received} to contract recipients.
      */
     function safeMint(address to, uint256 tokenId, bytes memory data) public virtual {
-        _mint(to, tokenId);
-        if( ! _checkOnERC721Received(address(0), to, tokenId, data) ) {
-            revert Error_ERC721_Transfer_To_Non_ERC721Receiver_implementer();
-        }
+        _safeMint(to, tokenId, data);
     }
 }

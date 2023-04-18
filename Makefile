@@ -39,11 +39,14 @@ clean:
 
 #####################################################################
 
-test: $(patsubst %, cache/%.burn, secp256k1 ed25519)
+test: hardhat-test $(patsubst %, cache/%.burn, secp256k1 ed25519)
 test-bn254: cache/bn254.burn
 test-secp256k1: cache/secp256k1.burn
 test-ed25519: cache/ed25519.burn
 test-x25519: cache/x25519.burn
+
+hardhat-test:
+	REPORT_GAS=1 pnpm hardhat test
 
 cache/%.address: $(wildcard contracts/*.sol)
 	if [ ! -f "$@" ]; then \

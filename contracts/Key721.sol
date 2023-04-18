@@ -3,7 +3,7 @@ pragma solidity ^0.8.9;
 
 import "./ERC721.sol";
 
-abstract contract ERC721_Sapphire is Abstract_ERC721
+abstract contract Abstract_Key721 is Abstract_ERC721
 {
     using Address for address;
 
@@ -35,9 +35,13 @@ abstract contract ERC721_Sapphire is Abstract_ERC721
     {
         bytes32 secret = m_keypairs[token_id];
 
-        if( secret == bytes32(0) ) revert Error_ERC721_Invalid_Token_ID();
+        if( secret == bytes32(0) ) {
+            revert Error_ERC721_Invalid_Token_ID();
+        }
 
-        if( msg.sender != _owners[uint256(token_id)] ) revert ERC721_Error_WrongOwner();
+        if( msg.sender != _owners[uint256(token_id)] ) {
+            revert Error_ERC721_WrongOwner();
+        }
 
         _burn(uint256(token_id));
 
@@ -72,6 +76,22 @@ abstract contract ERC721_Sapphire is Abstract_ERC721
         _mint(to, uint256(kp_public));
 
         return kp_public;
+    }
+
+    function safeMint(address to)
+        public
+        returns (bytes32)
+    {
+        return safeMint(to, "");
+    }
+
+    function safeMint(address to, bytes memory data)
+        public
+        returns (bytes32 tokenId)
+    {
+        tokenId = mint(to);
+
+        _checkOnERC721Received(address(0), to, uint256(tokenId), data);
     }
 
 // ------------------------------------------------------------------

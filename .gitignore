@@ -10,6 +10,8 @@ typechain-types
 pnpm-lock.yaml
 .node_repl_history
 .ts_node_repl_history
+*.swp
+*.swo
 
 # Hardhat files
 cache

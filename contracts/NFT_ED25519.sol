@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "./ERC721_Sapphire.sol";
+import "./Key721.sol";
 
-contract NFT_ED25519 is ERC721_Sapphire
+contract NFT_ED25519 is Abstract_Key721
 {
     address private constant GENERAGE_SIGNING_KEYPAIR = 0x0100000000000000000000000000000000000005;
 

@@ -16,7 +16,7 @@ abstract contract Abstract_ERC721 is IERC721, ERC165
     using Address for address;
 
     error Error_ERC721_Approve_To_Caller();
-    error ERC721_Error_WrongOwner();
+    error Error_ERC721_WrongOwner();
     error Error_ERC721_Invalid_Token_ID();
     error Error_ERC721_Approval_To_Current_Owner();
     error Error_ERC721_NotApproved();
@@ -50,6 +50,13 @@ abstract contract Abstract_ERC721 is IERC721, ERC165
         _owners[tokenId] = to;
 
         emit Transfer(address(0), to, tokenId);
+    }
+
+    function _safeMint(address to, uint256 tokenId, bytes memory data)
+        internal virtual
+    {
+        _mint(to, tokenId);
+        _checkOnERC721Received(address(0), to, tokenId, data);
     }
 
     function _burn(uint256 tokenId)
@@ -121,9 +128,7 @@ abstract contract Abstract_ERC721 is IERC721, ERC165
 
         _transfer(from, to, tokenId);
 
-        if( ! _checkOnERC721Received(from, to, tokenId, data) ) {
-            revert Error_ERC721_Transfer_To_Non_ERC721Receiver_implementer();
-        }
+        _checkOnERC721Received(from, to, tokenId, data);
     }
 
     function transferFrom(address from, address to, uint256 tokenId)
@@ -140,7 +145,7 @@ abstract contract Abstract_ERC721 is IERC721, ERC165
         private
     {
         if( _owners[tokenId] != from ) {
-            revert ERC721_Error_WrongOwner();
+            revert Error_ERC721_WrongOwner();
         }
 
         if( to == address(0) ) {
@@ -170,7 +175,9 @@ abstract contract Abstract_ERC721 is IERC721, ERC165
         if (to.isContract())
         {
             try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, data) returns (bytes4 retval) {
-                return retval == IERC721Receiver.onERC721Received.selector;
+                if( retval != IERC721Receiver.onERC721Received.selector ) {
+                    revert Error_ERC721_Transfer_To_Non_ERC721Receiver_implementer();
+                }
             }
             catch (bytes memory reason)
             {
@@ -192,7 +199,7 @@ abstract contract Abstract_ERC721 is IERC721, ERC165
         returns (bool) 
     {
         return interfaceId == type(IERC721).interfaceId
-             || super.supportsInterface(interfaceId);
+            || super.supportsInterface(interfaceId);
     }
 
     function ownerOf(uint256 tokenId)

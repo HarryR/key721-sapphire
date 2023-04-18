@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "./ERC721_Sapphire.sol";
+import "./Key721.sol";
 
 // Note: Sapphire doesn't support BN254 operations... so we have to do it the slow way!
 // Note: this is close to constant time, but gas cost of mint() will leak a small amount of information about the secret
@@ -10,7 +10,7 @@ import "./ERC721_Sapphire.sol";
 // See: https://github.com/orbs-network/elliptic-curve-solidity
 // See: https://github.com/alembic-tech/P256-verify-signature/
 // See: https://eprint.iacr.org/2015/1060.pdf (Complete addition formulas for prime order elliptic curves)
-contract NFT_BN254 is ERC721_Sapphire
+contract NFT_BN254 is Abstract_Key721
 {
     uint256 private constant a = 0;
     uint256 private constant b = 3;
