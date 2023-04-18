@@ -3,17 +3,9 @@ pragma solidity ^0.8.9;
 
 import "./Key721.sol";
 
-// Note: Sapphire doesn't support BN254 operations... so we have to do it the slow way!
-// Note: this is close to constant time, but gas cost of mint() will leak a small amount of information about the secret
-// See: https://hackmd.io/@jpw/bn254
-// See: https://eips.ethereum.org/EIPS/eip-196
-// See: https://github.com/orbs-network/elliptic-curve-solidity
-// See: https://github.com/alembic-tech/P256-verify-signature/
-// See: https://eprint.iacr.org/2015/1060.pdf (Complete addition formulas for prime order elliptic curves)
 contract NFT_BN254 is Abstract_Key721
 {
-    uint256 private constant a = 0;
-    uint256 private constant b = 3;
+    uint256 private constant b3 = 9;
     uint256 private constant GENERATOR_ORDER = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
     uint256 private constant P = 0x30644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD47;
 
@@ -37,128 +29,101 @@ contract NFT_BN254 is Abstract_Key721
         require(success);
     }
 
-    // Double an elliptic curve point
-    // https://www.nayuki.io/page/elliptic-curve-point-addition-in-projective-coordinates
-    function bn254_twice_proj(uint256 x0, uint256 y0, uint256 z0)
-        internal pure
-        returns(uint256 x1, uint256 y1, uint256 z1)
+    // a - b = c;
+    function submod(uint256 x, uint256 y)
+        private pure
+        returns (uint256)
     {
-        uint256 t;
-        uint256 u;
-        uint256 v;
-        uint256 w;
-
-        if(x0 == 0 && y0 == 0) {
-            return (0,0,1);
-        }
-
-        unchecked{
-            u = mulmod(y0, z0, P);
-            u = mulmod(u, 2, P);
-
-            v = mulmod(u, x0, P);
-            v = mulmod(v, y0, P);
-            v = mulmod(v, 2, P);
-
-            x0 = mulmod(x0, x0, P);
-            t = mulmod(x0, 3, P);
-            // comment in this section iff a == 0 (to save gas)
-            z0 = mulmod(z0, z0, P);
-            z0 = mulmod(z0, a, P);
-            t = addmod(t, z0, P);
-            // comment up to here if a == 0
-
-            w = mulmod(t, t, P);
-            x0 = mulmod(2, v, P);
-            w = addmod(w, P-x0, P);
-
-            x0 = addmod(v, P-w, P);
-            x0 = mulmod(t, x0, P);
-            y0 = mulmod(y0, u, P);
-            y0 = mulmod(y0, y0, P);
-            y0 = mulmod(2, y0, P);
-            y1 = addmod(x0, P-y0, P);
-
-            x1 = mulmod(u, w, P);
-
-            z1 = mulmod(u, u, P);
-            z1 = mulmod(z1, u, P);
+        unchecked {
+            return addmod(x, (P-y), P);
         }
     }
 
-    // Add elliptic curve points
-    // https://www.nayuki.io/page/elliptic-curve-point-addition-in-projective-coordinates
-    function bn254_add_proj(uint256 x0, uint256 y0, uint256 z0,
-                            uint256 x1, uint256 y1, uint256 z1)
+    // https://eprint.iacr.org/2015/1060.pdf
+    // Page 13, Sec 4, Algorithm 9: Exception-free point doubling for prime
+    // order j-invariant 0 short Weierstrass curves E/Fq : y2 = x3 + b
+    function sw_add(
+        uint256 X1, uint256 Y1, uint256 Z1,
+        uint256 X2, uint256 Y2, uint256 Z2
+    )
         private pure
-        returns(uint256 x2, uint256 y2, uint256 z2)
+        returns (uint256 X3, uint256 Y3, uint256 Z3)
     {
-        uint256 t0;
-        uint256 t1;
-        uint256 u0;
-        uint256 u1;
-
-        if (x0 == 0 && y0 == 0) {
-            return (x1, y1, z1);
-        }
-        else if (x1 == 0 && y1 == 0) {
-            return (x0, y0, z0);
-        }
-
         unchecked {
-            t0 = mulmod(y0, z1, P);
-            t1 = mulmod(y1, z0, P);
+            uint256 t0;
+            uint256 t1;
+            uint256 t2;
+            uint256 t3;
+            uint256 t4;
 
-            u0 = mulmod(x0, z1, P);
-            u1 = mulmod(x1, z0, P);
-
-            if (u0 == u1) {
-                if (t0 == t1) {
-                    return bn254_twice_proj(x0, y0, z0);
-                }
-                else {
-                    return (0,0,1);
-                }
-            }
-
-            (x2, y2, z2) = bn254_add_proj2(mulmod(z0, z1, P), u0, u1, t1, t0);
+            t0 = mulmod(X1, X2, P); // 1. t0 ← X1 · X2
+            t1 = mulmod(Y1, Y2, P); // 2. t1 ← Y1 · Y2
+            t2 = mulmod(Z1, Z2, P); // 3. t2 ← Z1 · Z2
+            t3 = addmod(X1, Y1, P); // 4. t3 ← X1 + Y1
+            t4 = addmod(X2, Y2, P); // 5. t4 ← X2 + Y2
+            t3 = mulmod(t3, t4, P); // 6. t3 ← t3 · t4
+            t4 = addmod(t0, t1, P); // 7. t4 ← t0 + t1
+            t3 = submod(t3, t4);    // 8. t3 ← t3 − t4
+            t4 = addmod(Y1, Z1, P); // 9. t4 ← Y1 + Z1
+            X3 = addmod(Y2, Z2, P); // 10. X3 ← Y2 + Z2
+            t4 = mulmod(t4, X3, P); // 11. t4 ← t4 · X3
+            X3 = addmod(t1, t2, P); // 12. X3 ← t1 + t2
+            t4 = submod(t4, X3);    // 13. t4 ← t4 − X3
+            X3 = addmod(X1, Z1, P); // 14. X3 ← X1 + Z1
+            Y3 = addmod(X2, Z2, P); // 15. Y3 ← X2 + Z2
+            X3 = mulmod(X3, Y3, P); // 16. X3 ← X3 · Y3
+            Y3 = addmod(t0, t2, P); // 17. Y3 ← t0 + t2
+            Y3 = submod(X3, Y3);    // 18. Y3 ← X3 − Y3
+            X3 = addmod(t0, t0, P); // 19. X3 ← t0 + t0
+            t0 = addmod(X3, t0, P); // 20. t0 ← X3 + t0
+            t2 = mulmod(b3, t2, P); // 21. t2 ← b3 · t2
+            Z3 = addmod(t1, t2, P); // 22. Z3 ← t1 + t2
+            t1 = submod(t1, t2);    // 23. t1 ← t1 − t2
+            Y3 = mulmod(b3, Y3, P); // 24. Y3 ← b3 · Y3
+            X3 = mulmod(t4, Y3, P); // 25. X3 ← t4 · Y3
+            t2 = mulmod(t3, t1, P); // 26. t2 ← t3 · t1
+            X3 = submod(t2, X3);    // 27. X3 ← t2 − X3
+            Y3 = mulmod(Y3, t0, P); // 28. Y3 ← Y3 · t0
+            t1 = mulmod(t1, Z3, P); // 29. t1 ← t1 · Z3
+            Y3 = addmod(t1, Y3, P); // 30. Y3 ← t1 + Y3
+            t0 = mulmod(t0, t3, P); // 31. t0 ← t0 · t3
+            Z3 = mulmod(Z3, t4, P); // 32. Z3 ← Z3 · t4
+            Z3 = addmod(Z3, t0, P); // 33. Z3 ← Z3 + t0
         }
     }
 
-    // An help function to split addProj so it won't have too many local variables
-    function bn254_add_proj2(uint256 v, uint256 u0, uint256 u1,
-                             uint256 t1, uint256 t0)
+    // https://eprint.iacr.org/2015/1060.pdf
+    // Page 13, Sec 4, Algorithm 9: Exception-free point doubling for prime
+    // order j-invariant 0 short Weierstrass curves E/Fq : y2 = x3 + b
+    function sw_double(
+        uint256 X, uint256 Y, uint256 Z
+    )
         private pure
-        returns(uint256 x2, uint256 y2, uint256 z2)
+        returns(uint256 X3, uint256 Y3, uint256 Z3)
     {
-        uint256 u;
-        uint256 u2;
-        uint256 u3;
-        uint256 w;
-        uint256 t;
-
         unchecked {
-            t = addmod(t0, P-t1, P);
-            u = addmod(u0, P-u1, P);
-            u2 = mulmod(u, u, P);
+            uint256 t0;
+            uint256 t1;
+            uint256 t2;
 
-            w = mulmod(t, t, P);
-            w = mulmod(w, v, P);
-            u1 = addmod(u1, u0, P);
-            u1 = mulmod(u1, u2, P);
-            w = addmod(w, P-u1, P);
-
-            x2 = mulmod(u, w, P);
-
-            u3 = mulmod(u2, u, P);
-            u0 = mulmod(u0, u2, P);
-            u0 = addmod(u0, P-w, P);
-            t = mulmod(t, u0, P);
-            t0 = mulmod(t0, u3, P);
-
-            y2 = addmod(t, P-t0, P);
-
-            z2 = mulmod(u3, v, P);
+            t0 = mulmod(Y, Y, P);   // 1. t0 ← Y · Y
+            Z3 = addmod(t0, t0, P); // 2. Z3 ← t0 + t0
+            Z3 = addmod(Z3, Z3, P); // 3. Z3 ← Z3 + Z3
+            Z3 = addmod(Z3, Z3, P); // 4. Z3 ← Z3 + Z3
+            t1 = mulmod(Y, Z, P);   // 5. t1 ← Y · Z
+            t2 = mulmod(Z, Z, P);   // 6. t2 ← Z · Z
+            t2 = mulmod(b3, t2, P); // 7. t2 ← b3 · t2
+            X3 = mulmod(t2, Z3, P); // 8. X3 ← t2 · Z3
+            Y3 = addmod(t0, t2, P); // 9. Y3 ← t0 + t2
+            Z3 = mulmod(t1, Z3, P); // 10. Z3 ← t1 · Z3
+            t1 = addmod(t2, t2, P); // 11. t1 ← t2 + t2
+            t2 = addmod(t1, t2, P); // 12. t2 ← t1 + t2
+            t0 = submod(t0, t2);    // 13. t0 ← t0 − t2
+            Y3 = mulmod(t0, Y3, P); // 14. Y3 ← t0 · Y3
+            Y3 = addmod(X3, Y3, P); // 15. Y3 ← X3 + Y3
+            t1 = mulmod(X, Y, P);   // 16. t1 ← X · Y
+            X3 = mulmod(t0, t1, P); // 17. X3 ← t0 · t1
+            X3 = addmod(X3, X3, P); // 18. X3 ← X3 + X3
         }
     }
 
@@ -167,9 +132,11 @@ contract NFT_BN254 is Abstract_Key721
         private view
         returns(uint256 x1, uint256 y1)
     {
-        uint256 z0Inv = inverse(z0);
-        x1 = mulmod(x0, z0Inv, P);
-        y1 = mulmod(y0, z0Inv, P);
+        unchecked {
+            uint256 z0Inv = inverse(z0);
+            x1 = mulmod(x0, z0Inv, P);
+            y1 = mulmod(y0, z0Inv, P);
+        }
     }
 
     // Multiply an elliptic curve point in a scalar
@@ -179,25 +146,24 @@ contract NFT_BN254 is Abstract_Key721
     {
         require( scalar != 0 );
 
-        if (scalar == 1) {
-            return (x0, y0);
-        }
-
-        uint256 base2X = x0;
-        uint256 base2Y = y0;
-        uint256 base2Z = 1;
-        uint256 z1 = 1;
-        x1 = x0 * (scalar%2);
-        y1 = y0 * (scalar%2);
-
         unchecked {
+            uint256 base2X = x0;
+            uint256 base2Y = y0;
+            uint256 base2Z = 1;
+            uint256 z1 = 1;
+
+            x1 = x0 * (scalar%2);
+            y1 = y0 * (scalar%2);
+
             scalar = scalar >> 1;
 
             for( uint i = 0; i < 255; i++ ) {
-                (base2X, base2Y, base2Z) = bn254_twice_proj(base2X, base2Y, base2Z);
+                (base2X, base2Y, base2Z) = sw_double(base2X, base2Y, base2Z);
 
-                (uint256 t_x, uint256 t_y, uint256 t_z) = bn254_add_proj(base2X, base2Y, base2Z, x1, y1, z1);
-                uint256 c = scalar % 2;
+                (uint256 t_x, uint256 t_y, uint256 t_z) = sw_add(base2X, base2Y, base2Z, x1, y1, z1);
+
+                // Constant time select, if bit is on
+                uint256 c = scalar & 1; //scalar % 2;
                 uint256 d = 1 - c;
                 x1 = (d*x1) + (c*t_x);
                 y1 = (d*y1) + (c*t_y);
@@ -205,18 +171,20 @@ contract NFT_BN254 is Abstract_Key721
 
                 scalar = scalar >> 1;
             }
-        }
 
-        return bn254_affine(x1, y1, z1);
+            return bn254_affine(x1, y1, z1);
+        }
     }
 
     function point_mul_to_compressed(uint256 p_x, uint256 p_y, uint256 s)
         private view
         returns (uint256)
     {
-        (p_x, p_y) = bn254_multiply(p_x, p_y, s);
+        unchecked {
+            (p_x, p_y) = bn254_multiply(p_x, p_y, s);
 
-        if (p_y & 0x01 == 0x01) p_x |= (1<<255);
+            p_x |= ((p_y & 1)<<255);
+        }
 
         return p_x;
     }
@@ -225,10 +193,12 @@ contract NFT_BN254 is Abstract_Key721
         internal view override
         returns (bytes32 bn254_public, bytes32 bn254_secret)
     {
-        bn254_secret = bytes32(_random_uint256_modulo(GENERATOR_ORDER));
+        unchecked {
+            bn254_secret = bytes32(_random_uint256_modulo(GENERATOR_ORDER));
 
-        bn254_public = bytes32(point_mul_to_compressed(1, 2, uint256(bn254_secret)));
+            bn254_public = bytes32(point_mul_to_compressed(1, 2, uint256(bn254_secret)));
 
-        require( bn254_public != bytes32(0) );
+            require( bn254_public != bytes32(0) );
+        }
     }
 }

@@ -1,11 +1,10 @@
 import { task } from "hardhat/config";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { SupportedCurves, key721_id_to_addresses } from "./pubkeys";
+import { SupportedCurves, key721_id_to_addresses, secret_to_addresses } from "./pubkeys";
 import nacl from 'tweetnacl';
 import { sha512_256 } from 'js-sha512';
 import { arrayify, keccak256 } from "ethers/lib/utils";
 import * as deoxysii from "deoxysii";
-import { Wallet } from "ethers";
 import { key721_factory as key721_factory } from "./deploy";
 
 task('key721-burn')
@@ -69,6 +68,9 @@ async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
             console.log(`hex secret: ${secret_hex}`);
             console.log(`b64 secret: ${secret_b64}`);
             for( const x of await key721_id_to_addresses(args.alg, tokenId) ) {
+                console.log(x);
+            }
+            for( const x of await secret_to_addresses(args.alg, secret_hex) ) {
                 console.log(x);
             }
         }

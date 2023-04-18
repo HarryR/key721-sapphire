@@ -19,6 +19,15 @@ export async function key721_id_to_addresses(alg:SupportedCurves, key721_id:stri
     }
 }
 
+export async function secret_to_addresses(alg:SupportedCurves, secret:string) {
+    switch(alg) {
+        case 'bn254': return bn254_key721_id_to_addresses(bn254_point_to_key721_id(secret_to_bn254_point(secret)));
+        case 'secp256k1': return [p256k1_point_to_addresses(secret_to_p256k1_point(secret))];
+        case 'ed25519': return  ed25519_point_to_addresses(await ed25519_point_from_secret(secret));
+        case 'x25519': return await x25519_secret_to_addresses(secret);
+    }
+}
+
 // ------------------------------------------------------------------
 
 export const bn254 = new curve.short({
@@ -26,14 +35,22 @@ export const bn254 = new curve.short({
     a: '0',
     b: '3',
     n: new BN('30644e72 e131a029 b85045b6 8181585d 2833e848 79b97091 43e1f593 f0000001', 'hex'),
-    gRed: false,
+    gRed: false
+    /*,
     beta: '59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe',
     lambda: 'b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd',
+    */
 });
 
 bn254.g = bn254.pointFromX(1);
 
 export type bn254_Point = curve.short.ShortPoint;
+
+export function secret_to_bn254_point(secret:BigNumberish) : bn254_Point {
+    const secret_bn = BigNumber.from(secret);
+    const x = new BN(secret_bn.toHexString().slice(2), 16);
+    return bn254.g.mul(x) as bn254_Point;
+}
 
 export function key721_id_to_bn254_point(token_id:string|BigNumberish) {
     const token_bn = BigNumber.from(token_id);
@@ -54,37 +71,6 @@ export function bn254_point_to_key721_id(point:bn254_Point) {
 }
 
 // ------------------------------------------------------------------
-
-/*
-// Elliptic ed25519 is a bit wonky? idk
-export const ed25519 = new ec("ed25519");
-
-export type ed25519_Point = curve.edwards.EdwardsPoint;
-
-export function key721_id_to_ed25519_point(key721_id:BigNumberish) : ed25519_Point {
-    let token_bn = new BN(BigNumber.from(key721_id).toString(), 10);
-    console.error('Recovering Ed25519 point', token_bn, key721_id);
-    return ed25519.curve.pointFromX(token_bn, token_bn.testn(255))
-}
-
-export function ed25519_point_to_key721_id(point:ed25519_Point) {
-    //y = int.from_bytes(s, "little")
-    //sign = y >> 255
-    //y &= (1 << 255) - 1
-    const enc = point.encode('hex', true);
-    const token_bn = new BN(enc.slice(2), 16);
-    if( enc.slice(0, 3) == '03' ) {
-        token_bn.setn(255);
-    }
-    return '0x' + token_bn.toString('hex');
-}
-
-export async function ed25519_point_to_oasis_address(point:ed25519_Point) {
-    const pk = Buffer.from(point.encode(undefined, true));
-    const address = await oasisRT_address.fromSigspec({ed25519: new Uint8Array(pk)});
-    return oasisRT_address.toBech32(address);
-}
-*/
 
 export function key721_id_to_ed25519_point(key721_id:BigNumberish) {
     return new Uint8Array(Buffer.from(BigNumber.from(key721_id).toHexString().slice(2), 'hex'));
@@ -120,11 +106,24 @@ export async function ed25519_point_from_secret(secret: Uint8Array|string) {
     return nacl.sign.keyPair.fromSeed(secret).publicKey;
 }
 
+export async function x25519_secret_to_addresses(secret:BigNumberish) {
+    const x = new Uint8Array(Buffer.from(BigNumber.from(secret).toHexString().slice(2), 'hex'));
+    return [{
+        key72_id: '0x' + Buffer.from(nacl.box.keyPair.fromSecretKey(x).publicKey).toString('hex')
+    }]
+}
+
 // ------------------------------------------------------------------
 
 export const secp256k1 = new ec("secp256k1");
 
 export type p256k1_Point = curve.short.ShortPoint;
+
+export function secret_to_p256k1_point(secret:BigNumberish) : p256k1_Point {
+    const secret_bn = BigNumber.from(secret);
+    const x = new BN(secret_bn.toHexString().slice(2), 16);
+    return secp256k1.g.mul(x) as p256k1_Point;
+}
 
 export function p256k1_point_to_key721_id(point:p256k1_Point) {
     return '0x' + point.getX().toString('hex');
