@@ -39,6 +39,8 @@
     "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
     "@nomicfoundation/hardhat-toolbox": "^2.0.2",
     "@nomiclabs/hardhat-ethers": "^2.2.2",
+    "@nomiclabs/hardhat-truffle5": "^2.0.7",
+    "@openzeppelin/test-helpers": "^0.5.16",
     "@types/bn.js": "^5.1.1",
     "@types/elliptic": "^6.4.14",
     "@types/node-fetch": "^2.6.3",

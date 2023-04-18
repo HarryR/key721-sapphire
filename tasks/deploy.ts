@@ -1,4 +1,3 @@
-import { task } from "hardhat/config";
 import readline from "readline";
 import fs from "fs";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
@@ -22,13 +21,17 @@ export async function key721_factory(alg:SupportedCurves, hre:HardhatRuntimeEnvi
   }
 }
 
-task('key721-deploy')
-    .addFlag('yes', 'Assume y to questions')
-    .addFlag('debug', 'Show debug info')
-    .addPositionalParam('alg', 'Algorithm or curve')
-    .setDescription('Deploy a variant of the Key721 contract')
-    .setAction(main)
-    ;
+try {
+  // Task defined this way so pubkeys can be imported outside of hardhat environment
+  const { task } = require("hardhat/config");
+  task('key721-deploy')
+      .addFlag('yes', 'Assume y to questions')
+      .addFlag('debug', 'Show debug info')
+      .addPositionalParam('alg', 'Algorithm or curve')
+      .setDescription('Deploy a variant of the Key721 contract')
+      .setAction(main)
+      ;
+} catch(e) {}
 
 function askQuestion(query:string) : Promise<string> {
     const rl = readline.createInterface({
@@ -42,13 +45,13 @@ function askQuestion(query:string) : Promise<string> {
     }));
 }
 
-interface MainArgs {
+interface DeployMainArgs {
   yes: boolean;
   debug: boolean;
   alg: SupportedCurves;
 }
 
-async function main(args:MainArgs, hre:HardhatRuntimeEnvironment)
+async function main(args:DeployMainArgs, hre:HardhatRuntimeEnvironment)
 {
   const ethers = hre.ethers;
 

@@ -1,4 +1,3 @@
-import { task } from "hardhat/config";
 import * as sqlite3 from 'sqlite3'
 import * as sqlite from 'sqlite'
 import { p256k1_key721_id_to_addresses, SupportedCurves } from "./pubkeys";
@@ -461,18 +460,21 @@ export class DbProp
 
 // ------------------------------------------------------------------
 
-task('key721-database')
-    .addPositionalParam("dbfile", 'Database file')
-    .addPositionalParam("subcommand", 'Which command?')
-    .setDescription('Run NFT (Key721) database utilities')
-    .setAction(main);
-
-interface MainArgs {
+try {
+    // Task defined this way so pubkeys can be imported outside of hardhat environment
+    const { task } = require("hardhat/config");
+    task('key721-database')
+        .addPositionalParam("dbfile", 'Database file')
+        .addPositionalParam("subcommand", 'Which command?')
+        .setDescription('Run NFT (Key721) database utilities')
+        .setAction(main);
+} catch(e) {}
+interface DatabaseMainArgs {
     dbfile: string;
     subcommand: string;
 }
 
-async function main(args: MainArgs)
+async function main(args: DatabaseMainArgs)
 {
     const db = await Db.open(args.dbfile);
 

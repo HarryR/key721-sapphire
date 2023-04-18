@@ -1,6 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
 import '@oasisprotocol/sapphire-hardhat';
 import "@nomicfoundation/hardhat-toolbox";
+import '@nomiclabs/hardhat-truffle5';
 
 import "./tasks/monitor";
 import "./tasks/mint";

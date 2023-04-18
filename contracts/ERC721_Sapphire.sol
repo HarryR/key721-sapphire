@@ -1,25 +1,15 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "./ERC721.sol";
 
-abstract contract ERC721_Sapphire is IERC721
+abstract contract ERC721_Sapphire is Abstract_ERC721
 {
     using Address for address;
 
     event PublicKey(bytes32 x25519_public);
 
     event RevealSecret(bytes32 p256k1_public, bytes32 contract_x25519_public, bytes ciphertext);
-
-    error NotAuthorized();
-    error BadOperator();
-    error WrongOwner();
-    error NotFound();
-    error CannotApproveToOwner();
-    error NotApproved();
-    error AlreadyExists();
 
     mapping(bytes32 => bytes32) internal m_keypairs;
 
@@ -45,9 +35,9 @@ abstract contract ERC721_Sapphire is IERC721
     {
         bytes32 secret = m_keypairs[token_id];
 
-        if( secret == bytes32(0) ) revert NotFound();
+        if( secret == bytes32(0) ) revert Error_ERC721_Invalid_Token_ID();
 
-        if( msg.sender != _owners[uint256(token_id)] ) revert WrongOwner();
+        if( msg.sender != _owners[uint256(token_id)] ) revert ERC721_Error_WrongOwner();
 
         _burn(uint256(token_id));
 
@@ -204,194 +194,5 @@ abstract contract ERC721_Sapphire is IERC721
         if( false == success ) revert ErrorGeneratingKeypair();
 
         x25519_public = bytes32(public_bytes);
-    }
-
-// ------------------------------------------------------------------
-// ERC-721 Implementation
-// Taken from OpenZeppelin implementation, unnecessary bits removed as it exceeds gas limit when deploying
-// OpenZeppelin: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC721/ERC721.sol
-// Spec: https://eips.ethereum.org/EIPS/eip-721
-
-    mapping(uint256 => address) private _owners;
-
-    mapping(address => uint256) private _balances;
-
-    mapping(uint256 => address) private _tokenApprovals;
-
-    mapping(address => mapping(address => bool)) private _operatorApprovals;
-
-    function _mint(address to, uint256 tokenId)
-        internal
-    {
-        if( address(0) != _owners[tokenId] ) revert AlreadyExists();
-
-        _balances[to] += 1;
-
-        _owners[tokenId] = to;
-
-        emit Transfer(address(0), to, tokenId);
-    }
-
-    function _burn(uint256 tokenId)
-        private
-    {
-        address owner = _owners[tokenId];
-        
-        if( address(0) == owner ) revert NotFound();
-
-        delete _tokenApprovals[tokenId];
-
-        _balances[owner] -= 1;
-
-        delete _owners[tokenId];
-
-        emit Transfer(owner, address(0), tokenId);
-    }
-
-    function setApprovalForAll(address operator, bool approved)
-        external
-    {
-        if( msg.sender == operator ) revert BadOperator();
-
-        _operatorApprovals[msg.sender][operator] = approved;
-
-        emit ApprovalForAll(msg.sender, operator, approved);
-    }
-
-    function getApproved(uint256 tokenId)
-        public view 
-        returns (address)
-    {
-        if( address(0) == _owners[tokenId] ) revert NotFound();
-
-        return _tokenApprovals[tokenId];
-    }
-
-    function safeTransferFrom(address from, address to, uint256 tokenId)
-        external
-    {
-        safeTransferFrom(from, to, tokenId, "");
-    }
-
-    function _isApprovedOrOwner(address spender, uint256 tokenId)
-        private view
-        returns (bool)
-    {
-        address owner = _owners[tokenId];
-        
-        if( address(0) == owner ) revert NotFound();
-
-        return (spender == owner || isApprovedForAll(owner, spender) || getApproved(tokenId) == spender);
-    }
-
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data)
-        public
-    {
-        if( false == _isApprovedOrOwner(msg.sender, tokenId) ) revert NotApproved();
-
-        _transfer(from, to, tokenId);
-
-        require( _checkOnERC721Received(from, to, tokenId, data) );
-    }
-
-    function transferFrom(address from, address to, uint256 tokenId)
-        external
-    {
-        if( false == _isApprovedOrOwner(msg.sender, tokenId) ) revert NotApproved();
-
-        _transfer(from, to, tokenId);
-    }
-
-    function _transfer(address from, address to, uint256 tokenId)
-        private
-    {
-        if( _owners[tokenId] != from ) revert WrongOwner();
-
-        delete _tokenApprovals[tokenId];
-
-        _balances[from] -= 1;
-
-        _balances[to] += 1;
-
-        _owners[tokenId] = to;
-
-        emit Transfer(from, to, tokenId);
-    }
-
-    function _checkOnERC721Received(
-        address from,
-        address to,
-        uint256 tokenId,
-        bytes memory data
-    )
-        private
-        returns (bool)
-    {
-        if (to.isContract())
-        {
-            try IERC721Receiver(to).onERC721Received(msg.sender, from, tokenId, data) returns (bytes4 retval) {
-                return retval == IERC721Receiver.onERC721Received.selector;
-            }
-            catch (bytes memory reason)
-            {
-                if ( 0 == reason.length ) {
-                    revert();
-                }
-                /// @solidity memory-safe-assembly
-                assembly {
-                    revert(add(32, reason), mload(reason))
-                }
-            }
-        }
-
-        return true;
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        external pure
-        returns (bool) 
-    {
-        return interfaceId == type(IERC721).interfaceId;
-    }
-
-    function ownerOf(uint256 tokenId)
-        external view
-        returns (address)
-    {
-        address owner = _owners[tokenId];
-
-        if( address(0) == owner ) revert NotFound();
-
-        return owner;
-    }
-
-    function approve(address to, uint256 tokenId)
-        external
-    {
-        address owner = _owners[tokenId];
-
-        if( address(0) == owner ) revert NotFound();
-
-        if( to == owner ) revert CannotApproveToOwner();
-
-        require( msg.sender == owner || isApprovedForAll(owner, msg.sender) );
-
-        _tokenApprovals[tokenId] = to;
-
-        emit Approval(owner, to, tokenId);
-    }
-
-    function isApprovedForAll(address owner, address operator)
-        public view
-        returns (bool)
-    {
-        return _operatorApprovals[owner][operator];
-    }
-
-    function balanceOf(address owner)
-        external view
-        returns (uint256) 
-    {
-        return _balances[owner];
     }
 }

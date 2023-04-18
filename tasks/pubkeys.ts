@@ -1,9 +1,8 @@
-import { task } from "hardhat/config";
 import BN from "bn.js";
 import nacl from "tweetnacl";
 import { ec, curve }  from "elliptic";
 import { BigNumber, BigNumberish, Wallet } from "ethers";
-import { base64, getAddress, hexDataSlice, isHexString, keccak256, sha256, toUtf8Bytes } from "ethers/lib/utils";
+import { getAddress, hexDataSlice, isHexString, keccak256, sha256, toUtf8Bytes } from "ethers/lib/utils";
 import { p2pkh, p2wpkh } from "bitcoinjs-lib/src/payments";
 import { address as oasisRT_address } from "@oasisprotocol/client-rt"
 
@@ -48,7 +47,7 @@ export function bn254_key721_id_to_addresses(token_id:string|BigNumberish) {
 
 export function bn254_point_to_key721_id(point:bn254_Point) {
     const x = point.getX()
-    if( point.getY().testn(1) )  {
+    if( point.getY().testn(0) )  {
         return '0x' + x.bincn(255).toString('hex').padStart(64, '0');
     }
     return '0x' + x.toString('hex').padStart(64, '0');
@@ -184,16 +183,22 @@ export function p256k1_key721_id_to_addresses(key721_id: string | BigNumber) {
 
 // ------------------------------------------------------------------
 
-task('key721-pubkeys')
-    .addPositionalParam('curve', 'Which curve: secp256k1 | bn254 | ed25519', 'secp256k1')
-    .addOptionalParam('brainseed', 'Derive from brain seed')
-    .addOptionalParam('secrethex', 'Derive from secret (0x prefixed hexadecimal)')
-    .addOptionalParam('secretb64', 'Derive from secret (Base64 encoded)')
-    .addOptionalParam('tokenid', 'Token ID provided by NFT contract')
-    .setDescription('Calculate public keys')
-    .setAction(main);
-
-interface MainArgs {
+try {
+    // Task defined this way so pubkeys can be imported outside of hardhat environment
+    const { task } = require("hardhat/config");
+    task('key721-pubkeys')
+        .addPositionalParam('curve', 'Which curve: secp256k1 | bn254 | ed25519', 'secp256k1')
+        .addOptionalParam('brainseed', 'Derive from brain seed')
+        .addOptionalParam('secrethex', 'Derive from secret (0x prefixed hexadecimal)')
+        .addOptionalParam('secretb64', 'Derive from secret (Base64 encoded)')
+        .addOptionalParam('tokenid', 'Token ID provided by NFT contract')
+        .setDescription('Calculate public keys')
+        .setAction(main);
+}
+catch( e ) {
+    // Ignored
+}
+interface PubkeysMainArgs {
     curve: SupportedCurves;
     brainseed: string | null;
     tokenid: string | null;
@@ -201,7 +206,7 @@ interface MainArgs {
     secretb64: string | null;
 }
 
-async function main(args: MainArgs)
+async function main(args: PubkeysMainArgs)
 {
     let secret;
     if( args.secrethex || args.secretb64 ) {
