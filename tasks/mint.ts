@@ -47,16 +47,19 @@ async function mint_main(args:MintMainArgs, hre:HardhatRuntimeEnvironment)
         if( args.debug ) {
             console.error(`  tokenId: ${tokenId.toHexString()}`);
             console.error(`    owner: ${owner}`);
-
-            // Ensure the correct token id can be regurgitated correctly after a full circle parse then serialize
-            console.error( await key721_id_to_addresses(args.alg, tokenId) );
+            console.error()
+            console.error('----------- addresses ---------');
+            for( const x of await key721_id_to_addresses(args.alg, tokenId) ) {
+                for( const [k,v] of Object.entries(x) ) {
+                    console.error(' ', k, v);
+                }
+            }
         }
 
         console.log(tokenId.toHexString());
-
         return 0;
     }
 
     console.error(receipt);
-    throw Error('Error minting!');
+    throw Error('Unable to mint token!');
 }

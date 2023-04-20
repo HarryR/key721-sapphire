@@ -6,7 +6,7 @@ import { LogDescription, arrayify, keccak256 } from "ethers/lib/utils";
 import * as deoxysii from "deoxysii";
 import { key721_factory } from "./deploy";
 import { TransactionReceipt } from "@ethersproject/providers";
-import { event } from "@oasisprotocol/client-rt";
+import { entropyToMnemonic } from "bip39";
 
 function x25519_derive_deoxysii(secretKey:Uint8Array, peerPublicKey:Uint8Array) {
     const shared = nacl.scalarMult(secretKey, peerPublicKey);
@@ -100,8 +100,7 @@ async function burn_main(args: BurnMainArgs, hre:HardhatRuntimeEnvironment)
     }
     else {
         if( ! args.x25519 ) {
-            console.error('Error: must provide x25519 secret used to decode event');
-            return 1;
+            throw Error('Must provide x25519 secret used to decode event');
         }
         const tmp = new Uint8Array(Buffer.from(args.x25519.slice(2), 'hex'));
         kp = nacl.box.keyPair.fromSecretKey(tmp);
@@ -109,14 +108,13 @@ async function burn_main(args: BurnMainArgs, hre:HardhatRuntimeEnvironment)
     }
 
     if( args.debug ) {
-        console.log(`        tx: ${receipt.transactionHash} (height: ${receipt.blockNumber})`);
-        console.log(`  gas used: ${receipt.gasUsed}`);
+        console.error(`        tx: ${receipt.transactionHash} (height: ${receipt.blockNumber})`);
+        console.error(`  gas used: ${receipt.gasUsed}`);
     }
 
     if( ! receipt.logs.length ) {
-        console.error('Error: burn failed!')
         console.log('Receipt:', receipt);
-        return 1;
+        throw Error('Burn failed');
     }
 
     const result = await key721_decrypt_burn_tx(hre, args.alg, receipt, kp.secretKey);
@@ -126,26 +124,31 @@ async function burn_main(args: BurnMainArgs, hre:HardhatRuntimeEnvironment)
         const secret_hex = '0x' + secret_buffer.toString('hex');
         const secret_b64 = secret_buffer.toString('base64');
         const x25519_hex = Buffer.from(kp.secretKey).toString('hex');
+        const secret_mnemonic = entropyToMnemonic(secret_buffer);
 
         if( args.debug ) {
-            console.log(`   tokenId: ${result.key721_id}`);
-            console.log(`hex secret: ${secret_hex}`);
-            console.log(`b64 secret: ${secret_b64}`);
-            console.log(`    x25519: 0x${x25519_hex}`);
-            for( const x of await key721_id_to_addresses(args.alg, result.key721_id) ) {
-                console.log(x);
-            }
+            console.error(`   tokenId: ${result.key721_id}`);
+            console.error();
+            console.error('----------- addresses ---------');
             for( const x of await secret_to_addresses(args.alg, secret_hex) ) {
-                console.log(x);
+                for( const [k,v] of Object.entries(x) ) {
+                    console.error(' ', k, v);
+                }
             }
+
+            console.error();
+            console.error('----------- secrets -----------');
+            console.error(`     bip39: ${secret_mnemonic}`);
+            console.error(`hex secret: ${secret_hex}`);
+            console.error(`b64 secret: ${secret_b64}`);
+            console.error(`    x25519: 0x${x25519_hex}`);
+            console.error();
         }
-        else {
-            console.log(secret_hex);
-        }
+
+        console.log(secret_hex);
         return 0;
     }
 
-    console.log('Error: cannot decode burn transaction');
     console.error('Receipt:', receipt);
-    return 1;
+    throw Error('Cannot decode burn transaction');
 }
