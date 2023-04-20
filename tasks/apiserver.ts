@@ -98,15 +98,15 @@ task('key721-apiserver')
     .addOptionalParam('listen', 'HTTP Listen Address')
     .addParam('dbfile', 'Database File')
     .setDescription('API Server')
-    .setAction(main);
+    .setAction(apiserver_main);
 
-interface MainArgs {
+interface ApiserverMainArgs {
     host: string;
     port: number;
     dbfile: string;
 }
 
-async function main(args: MainArgs)
+async function apiserver_main(args: ApiserverMainArgs)
 {
     const db = await Db.open(args.dbfile);
     const handler = new APIHandler(db);

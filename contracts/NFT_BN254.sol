@@ -189,8 +189,8 @@ contract NFT_BN254 is Abstract_Key721
         return p_x;
     }
 
-    function _generate_keypair()
-        internal view override
+    function generate_keypair()
+        public view override
         returns (bytes32 bn254_public, bytes32 bn254_secret)
     {
         unchecked {

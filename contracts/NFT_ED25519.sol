@@ -11,8 +11,8 @@ contract NFT_ED25519 is Abstract_Key721
 
     uint256 private constant Ed25519_Group_Order = 0x1000000000000000000000000000000014def9dea2f79cd65812631a5cf5d3ed;
 
-    function _generate_keypair()
-        internal view override
+    function generate_keypair()
+        public view override
         returns (bytes32 ed25519_public, bytes32 ed25519_secret)
     {
         bytes memory secret_bytes = abi.encodePacked(_random_uint256_modulo(Ed25519_Group_Order));

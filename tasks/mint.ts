@@ -10,16 +10,16 @@ task('key721-mint')
     .addPositionalParam("contract", 'Contract address 0x...')
     .addOptionalPositionalParam('to', 'Mint to address 0x...')
     .setDescription('Mint a NFT_p256k1 token')
-    .setAction(main);
+    .setAction(mint_main);
 
-interface MainArgs {
+interface MintMainArgs {
     alg: SupportedCurves;
     debug: boolean;
     contract: string;
     to: string | null;
 }
 
-async function main(args:MainArgs, hre:HardhatRuntimeEnvironment)
+async function mint_main(args:MintMainArgs, hre:HardhatRuntimeEnvironment)
 {
     const factory = await key721_factory(args.alg, hre);
     const contract = factory.attach(args.contract);

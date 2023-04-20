@@ -13,9 +13,9 @@ task('key721-transfer')
     .addFlag('debug', 'Show debugginf info')
     .addOptionalParam('data', 'Extra data to be passed')
     .setDescription('Run NFT_p256k1 transfer utility')
-    .setAction(main);
+    .setAction(transfer_main);
 
-interface MainArgs {
+interface TransferMainArgs {
     alg: SupportedCurves;
     debug: boolean;
     safe: boolean;
@@ -26,7 +26,7 @@ interface MainArgs {
     data: string | undefined;
 }
 
-async function main(args: MainArgs, hre:HardhatRuntimeEnvironment)
+async function transfer_main(args: TransferMainArgs, hre:HardhatRuntimeEnvironment)
 {
     const factory = await key721_factory(args.alg, hre);
     const contract = factory.attach(args.contract);

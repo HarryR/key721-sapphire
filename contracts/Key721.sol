@@ -2,8 +2,9 @@
 pragma solidity ^0.8.9;
 
 import "./ERC721.sol";
+import "./IKeypairGenerator.sol";
 
-abstract contract Abstract_Key721 is Abstract_ERC721
+abstract contract Abstract_Key721 is Abstract_ERC721, IKeypairGenerator
 {
     using Address for address;
 
@@ -16,6 +17,8 @@ abstract contract Abstract_Key721 is Abstract_ERC721
     bytes32 private m_public_x25519;
 
     bytes32 private m_secret_x25519;
+
+    function generate_keypair() public virtual returns (bytes32 kp_public, bytes32 kp_secret);
 
     constructor ()
     {
@@ -30,8 +33,9 @@ abstract contract Abstract_Key721 is Abstract_ERC721
         emit PublicKey(m_public_x25519);
     }
 
-    function burn(bytes32 token_id, bytes32 ephemeral_x25519_public)
-        external
+    function burn(bytes32 token_id)
+        public
+        returns (bytes32)
     {
         bytes32 secret = m_keypairs[token_id];
 
@@ -45,6 +49,14 @@ abstract contract Abstract_Key721 is Abstract_ERC721
 
         _burn(uint256(token_id));
 
+        return secret;
+    }
+
+    function burn(bytes32 token_id, bytes32 ephemeral_x25519_public)
+        external
+    {
+        bytes32 secret = burn(token_id);
+
         bytes32 key = _x25519_derive(ephemeral_x25519_public, m_secret_x25519);
 
         bytes32 IV = keccak256(abi.encodePacked(ephemeral_x25519_public));
@@ -53,8 +65,6 @@ abstract contract Abstract_Key721 is Abstract_ERC721
 
         emit RevealSecret(token_id, m_public_x25519, response);
     }
-
-    function _generate_keypair() internal view virtual returns (bytes32 kp_public, bytes32 kp_secret);
 
     function mint()
         external
@@ -67,7 +77,7 @@ abstract contract Abstract_Key721 is Abstract_ERC721
         public
         returns (bytes32)
     {
-        (bytes32 kp_public, bytes32 kp_secret) = _generate_keypair();
+        (bytes32 kp_public, bytes32 kp_secret) = generate_keypair();
 
         require( kp_public != 0 );
 

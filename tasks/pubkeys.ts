@@ -8,24 +8,38 @@ import { address as oasisRT_address } from "@oasisprotocol/client-rt"
 
 // ------------------------------------------------------------------
 
-export type SupportedCurves = 'secp256k1' | 'bn254' | 'ed25519' | 'x25519';
+export type SupportedCurves = 'secp256k1' | 'bn254' | 'ed25519' | 'x25519' | 'mock';
 
 export async function key721_id_to_addresses(alg:SupportedCurves, key721_id:string|BigNumber) {
     switch(alg) {
         case 'bn254': return bn254_key721_id_to_addresses(key721_id);
         case 'ed25519': return await ed25519_key721_id_to_addresses(key721_id);
         case 'secp256k1': return p256k1_key721_id_to_addresses(key721_id);
-        case 'x25519': return [{x25519: key721_id}];
+        case 'x25519': return [{key721_id: key721_id}];
+        case 'mock': return [{key721_id: key721_id}]
     }
 }
 
 export async function secret_to_addresses(alg:SupportedCurves, secret:string) {
     switch(alg) {
         case 'bn254': return bn254_key721_id_to_addresses(bn254_point_to_key721_id(secret_to_bn254_point(secret)));
-        case 'secp256k1': return [p256k1_point_to_addresses(secret_to_p256k1_point(secret))];
+        case 'secp256k1': return secret_to_p256k1_addresses(secret);
         case 'ed25519': return  ed25519_point_to_addresses(await ed25519_point_from_secret(secret));
         case 'x25519': return await x25519_secret_to_addresses(secret);
+        case 'mock': return mock_secret_to_addresses(secret);
     }
+}
+
+// ------------------------------------------------------------------
+
+function mock_secret_to_addresses(secret:BigNumberish)
+{
+    const u256secret = BigNumber.from(secret).toHexString().slice(2).padStart(64, '0');
+    const data = new Uint8Array(Buffer.from(u256secret, 'hex'));
+    const public_mock = keccak256(data);
+    return [{
+        key721_id: public_mock
+    }];
 }
 
 // ------------------------------------------------------------------
@@ -36,6 +50,7 @@ export const bn254 = new curve.short({
     b: '3',
     n: new BN('30644e72 e131a029 b85045b6 8181585d 2833e848 79b97091 43e1f593 f0000001', 'hex'),
     gRed: false
+    // XXX: are these necessary? provide a speed increase? idk
     /*,
     beta: '59e26bcea0d48bacd4f263f1acdb5c4f5763473177fffffe',
     lambda: 'b3c4d79d41a917585bfc41088d8daaa78b17ea66b99c90dd',
@@ -109,8 +124,8 @@ export async function ed25519_point_from_secret(secret: Uint8Array|string) {
 export async function x25519_secret_to_addresses(secret:BigNumberish) {
     const x = new Uint8Array(Buffer.from(BigNumber.from(secret).toHexString().slice(2), 'hex'));
     return [{
-        key72_id: '0x' + Buffer.from(nacl.box.keyPair.fromSecretKey(x).publicKey).toString('hex')
-    }]
+        key721_id: '0x' + Buffer.from(nacl.box.keyPair.fromSecretKey(x).publicKey).toString('hex')
+    }];
 }
 
 // ------------------------------------------------------------------
@@ -123,6 +138,16 @@ export function secret_to_p256k1_point(secret:BigNumberish) : p256k1_Point {
     const secret_bn = BigNumber.from(secret);
     const x = new BN(secret_bn.toHexString().slice(2), 16);
     return secp256k1.g.mul(x) as p256k1_Point;
+}
+
+export function secret_to_p256k1_points(secret:BigNumberish) : p256k1_Point[] {
+    const p = secret_to_p256k1_point(secret) as p256k1_Point;
+    const q = p.neg() as p256k1_Point;
+    return [p, q];
+}
+
+export function secret_to_p256k1_addresses(secret:BigNumberish) {
+    return secret_to_p256k1_points(secret).map(p256k1_point_to_addresses);
 }
 
 export function p256k1_point_to_key721_id(point:p256k1_Point) {
@@ -191,8 +216,8 @@ try {
         .addOptionalParam('secrethex', 'Derive from secret (0x prefixed hexadecimal)')
         .addOptionalParam('secretb64', 'Derive from secret (Base64 encoded)')
         .addOptionalParam('tokenid', 'Token ID provided by NFT contract')
-        .setDescription('Calculate public keys')
-        .setAction(main);
+        .setDescription('Calculate public keys for Key721')
+        .setAction(pubkeys_main);
 }
 catch( e ) {
     // Ignored
@@ -205,7 +230,7 @@ interface PubkeysMainArgs {
     secretb64: string | null;
 }
 
-async function main(args: PubkeysMainArgs)
+async function pubkeys_main(args: PubkeysMainArgs)
 {
     let secret;
     if( args.secrethex || args.secretb64 ) {

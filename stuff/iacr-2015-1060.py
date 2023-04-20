@@ -214,7 +214,7 @@ def alg_to_solidity(alg, replace):
 		elif row[4] == '+':
 			op = f'{row[1]} = addmod({row[3]}, {row[5]}, P);'
 		else:
-			raise Error('Unknown op', row[4], row)
+			raise RuntimeError('Unknown op', row[4], row)
 		yield op, comment
 
 replace = {

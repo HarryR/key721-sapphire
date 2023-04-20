@@ -82,8 +82,8 @@ task('key721-monitor')
     .addParam('alg', 'Key pair algorithm or curve')
     .addFlag('stats', 'Display status information')
     .setDescription('Run monitor for NFT (Key721) contract')
-    .setAction(main);
-interface MainArgs {
+    .setAction(monitor_main);
+interface MonitorMainArgs {
     alg: SupportedCurves;
     chain: string;
     stats: boolean;
@@ -92,7 +92,7 @@ interface MainArgs {
     dbfile: string;
 }
 
-async function main(args:MainArgs, hre:HardhatRuntimeEnvironment)
+async function monitor_main(args:MonitorMainArgs, hre:HardhatRuntimeEnvironment)
 {
     const db = await Db.open(args.dbfile);
 

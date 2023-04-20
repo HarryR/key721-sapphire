@@ -5,7 +5,7 @@ LABEL=harryr
 DEVACCT_PUBLIC=0x6052795666b7B062910AaC422b558445F1E4bcC5
 DEVACCT_SECRET=0xef2cebd4fe2ed0045f8b12bea2b9a7245d2db5e9d35eb7234f65c15e8facbecc
 DOCKER_RUN=docker run -v `pwd`:/src:rw --rm -ti -u `id -u`:`id -g`
-DOCKER_RUN_DEV=$(DOCKER_RUN) --network host -w /src -h key721-dev -e HOME=/src -e HISTFILESIZE=0 -e PRIVATE_KEY=$(DEVACCT_SECRET)
+DOCKER_RUN_DEV=$(DOCKER_RUN) --network host -w /src -h key721-dev -e HOME=/src -e HISTFILESIZE=0 -e HISTCONTROL=ignoreboth:erasedups -e PRIVATE_KEY=$(DEVACCT_SECRET)
 
 #####################################################################
 
@@ -48,6 +48,9 @@ test-x25519: cache/x25519.burn
 hardhat-test:
 	REPORT_GAS=1 pnpm hardhat test
 
+.PRECIOUS: cache/%.address
+.PRECIOUS: cache/%-mint.tokenid
+
 cache/%.address: $(wildcard contracts/*.sol)
 	if [ ! -f "$@" ]; then \
 		$(HARDHAT) key721-deploy --yes $* ; \
@@ -57,7 +60,7 @@ cache/%.transfer: cache/%.address cache/%-mint.tokenid
 	$(HARDHAT) key721-transfer `cat cache/$*.address` `cat cache/$*-mint.tokenid` $(DEVACCT_PUBLIC) $(DEVACCT_PUBLIC)
 
 cache/%.burn: cache/%-mint.tokenid
-	$(HARDHAT) key721-burn --alg $* --debug `cat cache/$*.address` `cat cache/$*-mint.tokenid`
+	$(HARDHAT) key721-burn --alg $* --debug --contract `cat cache/$*.address` --tokenid `cat cache/$*-mint.tokenid`
 	rm -f $<
 
 cache/%-mint.tokenid: cache/%.address

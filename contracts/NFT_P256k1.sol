@@ -11,8 +11,8 @@ contract NFT_P256k1 is Abstract_Key721
 
     uint256 private constant Secp256k1_Curve_Order = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
 
-    function _generate_keypair()
-        internal view override
+    function generate_keypair()
+        public view override
         returns (bytes32 p256k1_public, bytes32 p256k1_secret)
     {
         bytes32 seed = bytes32(_random_uint256_modulo(Secp256k1_Curve_Order));

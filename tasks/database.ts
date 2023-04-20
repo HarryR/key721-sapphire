@@ -467,14 +467,14 @@ try {
         .addPositionalParam("dbfile", 'Database file')
         .addPositionalParam("subcommand", 'Which command?')
         .setDescription('Run NFT (Key721) database utilities')
-        .setAction(main);
+        .setAction(database_main);
 } catch(e) {}
 interface DatabaseMainArgs {
     dbfile: string;
     subcommand: string;
 }
 
-async function main(args: DatabaseMainArgs)
+async function database_main(args: DatabaseMainArgs)
 {
     const db = await Db.open(args.dbfile);
 

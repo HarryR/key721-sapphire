@@ -29,7 +29,7 @@ try {
       .addFlag('debug', 'Show debug info')
       .addPositionalParam('alg', 'Algorithm or curve')
       .setDescription('Deploy a variant of the Key721 contract')
-      .setAction(main)
+      .setAction(deploy_main)
       ;
 } catch(e) {}
 
@@ -51,7 +51,7 @@ interface DeployMainArgs {
   alg: SupportedCurves;
 }
 
-async function main(args:DeployMainArgs, hre:HardhatRuntimeEnvironment)
+async function deploy_main(args:DeployMainArgs, hre:HardhatRuntimeEnvironment)
 {
   const ethers = hre.ethers;
 
