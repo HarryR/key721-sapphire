@@ -13,7 +13,7 @@ import "./tasks/fetch-ethplorer";
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.9",
+    version: "0.8.18",
     settings: {
       optimizer: {
           enabled: true,
@@ -32,7 +32,15 @@ const config: HardhatUserConfig = {
         : [],
       chainId: 0x5afd,
     },
-    sapphire: {
+    // https://docs.oasis.io/dapp/sapphire/
+    sapphire_mainnet: {
+      url: "https://sapphire.oasis.io/",
+      accounts: process.env.PRIVATE_KEY
+        ? [process.env.PRIVATE_KEY]
+        : [],
+      chainId: 0x5afe,
+    },
+    sapphire_testnet: {
       url: "https://testnet.sapphire.oasis.dev",
       accounts: process.env.PRIVATE_KEY
         ? [process.env.PRIVATE_KEY]
